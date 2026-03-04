@@ -45,6 +45,8 @@ textarea::placeholder {
   font-style: italic;
 }
 .tiptap:focus { outline: none; }
+button:focus { outline: none; }
+a:focus { outline: none; }
 
 /* ── Prose overrides — Obsidian-style editor ────────── */
 .prose {
@@ -60,7 +62,7 @@ textarea::placeholder {
 }
 
 /* Headings — clear separation above, tight below */
-.prose :where(h1) { font-size: 1.9em !important; margin-top: 1.6em !important; margin-bottom: 1.5em !important; }
+.prose :where(h1) { font-size: 1.9em !important; margin-top: 1.6em !important; margin-bottom: .75em !important; }
 .prose :where(h2) { font-size: 1.5em !important; margin-top: 1.4em !important; margin-bottom: 0.2em !important; }
 .prose :where(h3) { font-size: 1.25em !important; margin-top: 1.2em !important; margin-bottom: 0.15em !important; }
 .prose :where(h4, h5, h6) { margin-top: 1em !important; margin-bottom: 0.15em !important; }

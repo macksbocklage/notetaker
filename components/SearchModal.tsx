@@ -220,7 +220,7 @@ export default function SearchModal({ open, onClose, notes, onSelect, onNewNote,
           {items.map((item, i) => {
             const isActive = i === activeIndex
             const activeStyle = {
-              borderLeft: `2px solid ${isActive ? 'var(--accent)' : 'transparent'}`,
+              borderLeft: 'none',
               background: isActive ? 'var(--surface)' : 'transparent',
             }
             // Thin divider before first note when both sections are present

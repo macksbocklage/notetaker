@@ -263,7 +263,6 @@ export default function Page() {
               style={note.id === activeId ? {
                 background: 'var(--surface)',
                 color: 'var(--text-primary)',
-                boxShadow: 'inset 2px 0 0 var(--accent)',
               } : {}}
             >
               <div className="flex items-start justify-between gap-1">
@@ -303,14 +302,7 @@ export default function Page() {
           onMouseEnter={focusMode ? e => { (e.currentTarget as HTMLElement).style.opacity = '1' } : undefined}
           onMouseLeave={focusMode ? e => { (e.currentTarget as HTMLElement).style.opacity = '0.2' } : undefined}
         >
-          <input
-            value={activeNote?.title ?? ''}
-            onChange={(e) => handleTitleChange(e.target.value)}
-            onKeyDown={handleTitleKeyDown}
-            placeholder="Untitled"
-            className="text-xl outline-none flex-1 bg-transparent"
-            style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)', fontWeight: 500 }}
-          />
+          <div className="flex-1" />
           <button
             onClick={() => setFocusMode(f => !f)}
             title={focusMode ? 'Exit focus mode (⌘⇧F)' : 'Focus mode (⌘⇧F)'}

@@ -29,7 +29,8 @@
       "Bash(npm install turndown && npm install --save-dev @types/turndown 2>&1 | tail -5)",
       "Bash(npx next build 2>&1 | tail -20)",
       "Bash(git add . && git commit -m \"Add tree-view indent guide lines aligned to bullet disc centers\" && git push)",
-      "Bash(git add . && git commit -m \"Increase h1 bottom margin for more spacing below document title\" && git push)"
+      "Bash(git add . && git commit -m \"Increase h1 bottom margin for more spacing below document title\" && git push)",
+      "Bash(git add . && git commit -m \"Remove note title input from header, remove accent border indicators\" && git push)"
     ]
   }
 }
