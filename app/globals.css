@@ -156,3 +156,18 @@ textarea::placeholder {
   border-radius: 2px;
   padding: 0 2px;
 }
+
+/* ── AI sidebar markdown ────────────────────────────── */
+.ai-response.markdown-body {
+  font-size: 13.5px;
+}
+.ai-response.markdown-body > *:first-child {
+  font-size: 1.2em;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.markdown-body hr {
+  margin: 16px 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}

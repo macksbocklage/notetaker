@@ -1,5 +1,6 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
+import { marked } from 'marked'
 import { useAIStream } from '@/hooks/useAIStream'
 
 interface Message {
@@ -12,6 +13,29 @@ interface AISidebarProps {
   onClose: () => void
   documentContent: string
   onInsert: (text: string) => void
+}
+
+function MarkdownRenderer({ text }: { text: string }) {
+  const html = useMemo(
+    () =>
+      marked.parse(text, {
+        breaks: true,
+        gfm: true,
+      }) as string,
+    [text],
+  )
+
+  return (
+    <div
+      className="markdown-body ai-response"
+      style={{
+        fontFamily: 'var(--font-sans)',
+        lineHeight: 1.6,
+        color: 'inherit',
+      }}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  )
 }
 
 export default function AISidebar({ open, onClose, documentContent, onInsert }: AISidebarProps) {
@@ -149,15 +173,12 @@ export default function AISidebar({ open, onClose, documentContent, onInsert }: 
                         background: 'var(--bg-sidebar)',
                         color: 'var(--text-primary)',
                         border: '1px solid var(--border)',
-                      }
-                  ),
+                      }),
                 }}
               >
                 {msg.role === 'ai' ? (
                   <div>
-                    <pre className="whitespace-pre-wrap" style={{ fontFamily: 'var(--font-sans)', margin: 0 }}>
-                      {msg.text}
-                    </pre>
+                    <MarkdownRenderer text={msg.text} />
                     <button
                       onClick={() => onInsert(msg.text)}
                       className="mt-2.5 text-xs cursor-pointer"
@@ -190,19 +211,18 @@ export default function AISidebar({ open, onClose, documentContent, onInsert }: 
                   maxWidth: '88%',
                   borderRadius: '14px 14px 14px 3px',
                   padding: '10px 14px',
-                  fontSize: '13.5px',
-                  lineHeight: '1.6',
-                  fontFamily: 'var(--font-sans)',
                   background: 'var(--bg-sidebar)',
                   color: 'var(--text-primary)',
                   border: '1px solid var(--border)',
                 }}
               >
-                <pre className="whitespace-pre-wrap" style={{ fontFamily: 'var(--font-sans)', margin: 0 }}>
-                  {streamedText || (
-                    <span style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>Thinking…</span>
-                  )}
-                </pre>
+                {streamedText ? (
+                  <MarkdownRenderer text={streamedText} />
+                ) : (
+                  <span style={{ color: 'var(--text-tertiary)', fontStyle: 'italic', fontFamily: 'var(--font-sans)', fontSize: '13.5px', lineHeight: 1.6 }}>
+                    Thinking…
+                  </span>
+                )}
               </div>
             </div>
           )}
