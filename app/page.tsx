@@ -197,7 +197,6 @@ export default function Page() {
               style={note.id === activeId ? {
                 background: 'var(--surface)',
                 color: 'var(--text-primary)',
-                boxShadow: 'inset 2px 0 0 var(--accent)',
               } : {}}
             >
               <div className="flex items-start justify-between gap-1">

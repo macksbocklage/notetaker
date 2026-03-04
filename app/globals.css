@@ -93,7 +93,6 @@ textarea::placeholder {
 .note-item.is-active {
   background: var(--surface);
   color: var(--text-primary);
-  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 /* ── Icon buttons ──────────────────────────────────── */
