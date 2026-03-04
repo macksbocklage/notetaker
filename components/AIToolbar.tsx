@@ -1,52 +1,67 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
-import { SelectionState, AIMode } from '@/types'
+import { useEffect, useState } from 'react'
+import { AIMode } from '@/types'
 import { useAIStream } from '@/hooks/useAIStream'
 
 interface AIToolbarProps {
-  selection: SelectionState
-  onInsert: (text: string, mode: 'replace' | 'after') => void
+  rect: DOMRect | null
+  selectedText: string
+  inReview: boolean
+  onApply: (text: string, mode: AIMode) => void
+  onAccept: () => void
+  onReject: () => void
   onDismiss: () => void
 }
 
-const QUICK_ACTIONS: { label: string; mode: AIMode; icon: string }[] = [
-  { label: 'Explain', mode: 'explain', icon: '?' },
-  { label: 'Analyze', mode: 'analyze', icon: '~' },
-  { label: 'Rewrite', mode: 'rewrite', icon: '↺' },
+const QUICK_ACTIONS: { label: string; mode: AIMode }[] = [
+  { label: 'Explain', mode: 'explain' },
+  { label: 'Analyze', mode: 'analyze' },
+  { label: 'Rewrite', mode: 'rewrite' },
 ]
 
-type Phase = 'idle' | 'streaming' | 'done'
+type Phase = 'idle' | 'loading' | 'review'
 
-export default function AIToolbar({ selection, onInsert, onDismiss }: AIToolbarProps) {
-  const { stream, streaming, streamedText, error, reset } = useAIStream()
-  const [phase, setPhase] = useState<Phase>('idle')
+export default function AIToolbar({
+  rect,
+  selectedText,
+  inReview,
+  onApply,
+  onAccept,
+  onReject,
+  onDismiss,
+}: AIToolbarProps) {
+  const { stream, reset } = useAIStream()
+  const [phase, setPhase] = useState<Phase>(inReview ? 'review' : 'idle')
   const [activeMode, setActiveMode] = useState<AIMode | null>(null)
-  const toolbarRef = useRef<HTMLDivElement>(null)
-  const { text, rect } = selection
 
-  // coordsAtPos returns viewport-relative coords — use directly with position:fixed (no scrollY needed)
+  useEffect(() => {
+    if (inReview) setPhase('review')
+  }, [inReview])
+
   const position = rect
-    ? {
-        top: rect.top - (phase !== 'idle' ? 220 : 50) - 8,
-        left: rect.left + rect.width / 2,
-      }
+    ? { top: rect.top - 50 - 8, left: rect.left + rect.width / 2 }
     : null
 
   const handleAction = async (mode: AIMode) => {
     setActiveMode(mode)
-    setPhase('streaming')
-    const result = await stream({ mode, selectedText: text })
-    setPhase(result ? 'done' : 'idle')
+    setPhase('loading')
+    const result = await stream({ mode, selectedText })
+    if (result) {
+      onApply(result, mode)
+      setPhase('review')
+    } else {
+      setPhase('idle')
+    }
   }
 
-  const handleInsert = (insertMode: 'replace' | 'after') => {
-    onInsert(streamedText, insertMode)
-    onDismiss()
+  const handleAccept = () => {
+    onAccept()
     reset()
     setPhase('idle')
   }
 
-  const handleDiscard = () => {
+  const handleReject = () => {
+    onReject()
     reset()
     setPhase('idle')
   }
@@ -54,86 +69,151 @@ export default function AIToolbar({ selection, onInsert, onDismiss }: AIToolbarP
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onDismiss()
-        reset()
-        setPhase('idle')
+        if (phase === 'review') handleReject()
+        else { onDismiss(); reset(); setPhase('idle') }
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [onDismiss, reset])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase])
 
-  if (!rect || !text || !position) return null
+  if (!position) return null
 
   return (
+    // Outer div: handles centering position only
     <div
-      ref={toolbarRef}
-      className="fixed z-50 -translate-x-1/2 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden"
-      style={{ top: position.top, left: position.left }}
-      onMouseDown={(e) => {
-        e.preventDefault() // keep editor selection alive
-        e.nativeEvent.stopImmediatePropagation() // prevent document listeners from clearing selection
-      }}
+      className="fixed z-50"
+      style={{ top: position.top, left: position.left, transform: 'translateX(-50%)' }}
     >
-      {phase === 'idle' && (
-        <div className="flex items-center gap-1 px-2 py-1.5">
-          <span className="text-xs text-gray-400 px-2 font-medium">AI</span>
-          {QUICK_ACTIONS.map((action) => (
-            <button
-              key={action.mode}
-              onClick={() => handleAction(action.mode)}
-              className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors font-medium cursor-pointer"
+      {/* Inner div: animates in */}
+      <div
+        className="toolbar-animate overflow-hidden"
+        style={{
+          background: 'rgba(250, 249, 245, 0.97)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          border: '1px solid rgba(221, 217, 207, 0.9)',
+          borderRadius: '12px',
+          boxShadow: '0 4px 20px rgba(28, 26, 23, 0.1), 0 1px 4px rgba(28, 26, 23, 0.06)',
+        }}
+        onMouseDown={(e) => {
+          e.preventDefault()
+          e.nativeEvent.stopImmediatePropagation()
+        }}
+      >
+        {phase === 'idle' && (
+          <div className="flex items-center" style={{ padding: '5px 6px' }}>
+            <span
+              style={{
+                color: 'var(--accent)',
+                padding: '0 8px',
+                fontSize: '12px',
+                fontFamily: 'var(--font-sans)',
+              }}
             >
-              {action.icon} {action.label}
-            </button>
-          ))}
-        </div>
-      )}
+              ✦
+            </span>
+            {QUICK_ACTIONS.map((action) => (
+              <button
+                key={action.mode}
+                onClick={() => handleAction(action.mode)}
+                className="toolbar-btn"
+                style={{
+                  padding: '6px 11px',
+                  fontSize: '13px',
+                  fontFamily: 'var(--font-sans)',
+                  fontWeight: 450,
+                }}
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
+        )}
 
-      {(phase === 'streaming' || phase === 'done') && (
-        <div className="w-80 max-h-60 flex flex-col">
-          <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
-            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-              {activeMode}
-              {streaming && <span className="animate-pulse"> ...</span>}
+        {phase === 'loading' && (
+          <div className="flex items-center gap-2.5" style={{ padding: '10px 16px' }}>
+            <span
+              className="inline-block w-3.5 h-3.5 rounded-full animate-spin"
+              style={{
+                border: '1.5px solid var(--border)',
+                borderTopColor: 'var(--accent)',
+              }}
+            />
+            <span
+              className="text-sm capitalize"
+              style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)' }}
+            >
+              {activeMode ?? 'Generating'}…
+            </span>
+          </div>
+        )}
+
+        {phase === 'review' && (
+          <div className="flex items-center" style={{ padding: '5px 6px' }}>
+            <span
+              className="text-xs capitalize"
+              style={{
+                color: 'var(--text-tertiary)',
+                padding: '0 8px',
+                fontFamily: 'var(--font-sans)',
+                fontWeight: 500,
+              }}
+            >
+              {activeMode ?? 'AI'}
             </span>
             <button
-              onClick={() => { onDismiss(); reset(); setPhase('idle') }}
-              className="text-gray-400 hover:text-gray-600 text-sm cursor-pointer"
+              onClick={handleAccept}
+              className="flex items-center gap-1.5 cursor-pointer"
+              style={{
+                padding: '6px 11px',
+                fontSize: '13px',
+                fontFamily: 'var(--font-sans)',
+                fontWeight: 500,
+                color: '#166534',
+                background: '#E7F4E8',
+                border: 'none',
+                borderRadius: '7px',
+                cursor: 'pointer',
+                transition: 'background 0.1s',
+              }}
+              onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = '#CCE8CE'}
+              onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = '#E7F4E8'}
             >
-              ✕
+              <svg width="11" height="9" viewBox="0 0 11 9" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="1,4.5 4,7.5 10,1.5" />
+              </svg>
+              Accept
+            </button>
+            <div style={{ width: 4 }} />
+            <button
+              onClick={handleReject}
+              className="flex items-center gap-1.5 cursor-pointer"
+              style={{
+                padding: '6px 11px',
+                fontSize: '13px',
+                fontFamily: 'var(--font-sans)',
+                fontWeight: 500,
+                color: '#991B1B',
+                background: '#FFF0F0',
+                border: 'none',
+                borderRadius: '7px',
+                cursor: 'pointer',
+                transition: 'background 0.1s',
+              }}
+              onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = '#FFDDD8'}
+              onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = '#FFF0F0'}
+            >
+              <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <line x1="1" y1="1" x2="8" y2="8" />
+                <line x1="8" y1="1" x2="1" y2="8" />
+              </svg>
+              Reject
             </button>
           </div>
-          <div className="p-3 text-sm text-gray-700 overflow-y-auto flex-1 whitespace-pre-wrap font-mono leading-relaxed">
-            {streamedText || <span className="text-gray-400 animate-pulse">Generating…</span>}
-            {error && <span className="text-red-500">{error}</span>}
-          </div>
-          {phase === 'done' && (
-            <div className="flex gap-2 p-2 border-t border-gray-100 bg-gray-50">
-              {activeMode === 'rewrite' && (
-                <button
-                  onClick={() => handleInsert('replace')}
-                  className="flex-1 px-3 py-1.5 text-sm bg-black text-white rounded-lg hover:bg-gray-800 transition-colors cursor-pointer"
-                >
-                  Replace
-                </button>
-              )}
-              <button
-                onClick={() => handleInsert('after')}
-                className="flex-1 px-3 py-1.5 text-sm bg-black text-white rounded-lg hover:bg-gray-800 transition-colors cursor-pointer"
-              >
-                Insert After
-              </button>
-              <button
-                onClick={handleDiscard}
-                className="flex-1 px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-              >
-                Discard
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic'
 import AIToolbar from '@/components/AIToolbar'
 import AISidebar from '@/components/AISidebar'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
-import { Note, SelectionState } from '@/types'
+import { Note, SelectionState, AIMode } from '@/types'
 import type { EditorHandle } from '@/components/Editor'
 
 const Editor = dynamic(() => import('@/components/Editor'), { ssr: false })
@@ -19,30 +19,47 @@ function createNote(): Note {
   }
 }
 
+function formatDate(timestamp: number): string {
+  const now = Date.now()
+  const diff = now - timestamp
+  const mins = Math.floor(diff / 60000)
+  const hours = Math.floor(diff / 3600000)
+  const days = Math.floor(diff / 86400000)
+  if (mins < 2) return 'Just now'
+  if (mins < 60) return `${mins}m ago`
+  if (hours < 24) return `${hours}h ago`
+  if (days === 1) return 'Yesterday'
+  if (days < 7) return `${days}d ago`
+  return new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
 const defaultNote = createNote()
 
 export default function Page() {
   const editorRef = useRef<EditorHandle>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const notesRef = useRef<Note[]>([])
+  const selectionRef = useRef<SelectionState>({ text: '', rect: null, from: 0, to: 0 })
 
-  // v2 key — fresh start with HTML storage (no markdown migration issues)
   const [notes, setNotes] = useLocalStorage<Note[]>('notetaker-notes-v2', [defaultNote])
   const [activeId, setActiveId] = useLocalStorage<string>('notetaker-active-id-v2', defaultNote.id)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [selection, setSelection] = useState<SelectionState>({ text: '', rect: null })
+  const [selection, setSelection] = useState<SelectionState>({ text: '', rect: null, from: 0, to: 0 })
+
+  const [diffActive, setDiffActive] = useState(false)
+  const [reviewRect, setReviewRect] = useState<DOMRect | null>(null)
+  const [reviewMode, setReviewMode] = useState<AIMode | null>(null)
 
   notesRef.current = notes
+  selectionRef.current = selection
   const activeNote = notes.find(n => n.id === activeId) ?? notes[0]
 
-  // Mirror of editor HTML — kept for debounced save and AI context
   const [editorContent, setEditorContent] = useState(activeNote?.content ?? '')
 
-  // Sync displayed content when switching notes
   useEffect(() => {
     const note = notesRef.current.find(n => n.id === activeId) ?? notesRef.current[0]
     setEditorContent(note?.content ?? '')
-    setSelection({ text: '', rect: null })
+    setSelection({ text: '', rect: null, from: 0, to: 0 })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId])
 
@@ -51,24 +68,17 @@ export default function Page() {
       clearTimeout(saveTimerRef.current)
       saveTimerRef.current = null
       setNotes(prev =>
-        prev.map(n => n.id === activeId
-          ? { ...n, content: editorContent, updatedAt: Date.now() }
-          : n
-        )
+        prev.map(n => n.id === activeId ? { ...n, content: editorContent, updatedAt: Date.now() } : n)
       )
     }
   }, [activeId, editorContent, setNotes])
 
-  // Immediate local update + debounced localStorage write
   const handleContentChange = useCallback((html: string) => {
     setEditorContent(html)
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
       setNotes(prev =>
-        prev.map(n => n.id === activeId
-          ? { ...n, content: html, updatedAt: Date.now() }
-          : n
-        )
+        prev.map(n => n.id === activeId ? { ...n, content: html, updatedAt: Date.now() } : n)
       )
     }, 400)
   }, [activeId, setNotes])
@@ -106,13 +116,27 @@ export default function Page() {
     )
   }
 
-  const handleToolbarInsert = useCallback((text: string, mode: 'replace' | 'after') => {
-    if (!editorRef.current) return
-    if (mode === 'replace') {
-      editorRef.current.replaceSelection(text)
-    } else {
-      editorRef.current.insertAtCursor(text)
-    }
+  const handleApply = useCallback((text: string, mode: AIMode) => {
+    const { from, to, rect } = selectionRef.current
+    editorRef.current?.applyDiff(from, to, text, mode)
+    setReviewRect(rect)
+    setReviewMode(mode)
+    setDiffActive(true)
+    setSelection({ text: '', rect: null, from: 0, to: 0 })
+  }, [])
+
+  const handleAccept = useCallback(() => {
+    editorRef.current?.acceptDiff()
+    setDiffActive(false)
+    setReviewRect(null)
+    setReviewMode(null)
+  }, [])
+
+  const handleReject = useCallback(() => {
+    editorRef.current?.rejectDiff()
+    setDiffActive(false)
+    setReviewRect(null)
+    setReviewMode(null)
   }, [])
 
   const handleSidebarInsert = useCallback((text: string) => {
@@ -120,64 +144,120 @@ export default function Page() {
     editorRef.current?.focus()
   }, [])
 
-  // Strip HTML for AI context (plain text is cleaner for the model)
+  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      editorRef.current?.focus()
+    }
+  }
+
   const aiContext = editorContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+  const showToolbar = selection.text.length > 0 || diffActive
+  const toolbarRect = diffActive ? reviewRect : selection.rect
 
   return (
-    <div className="flex h-screen bg-white overflow-hidden">
-      {/* Note list sidebar */}
-      <aside className="w-56 border-r border-gray-100 flex flex-col shrink-0">
-        <div className="p-4 border-b border-gray-100">
-          <div className="flex items-center justify-between">
-            <span className="font-semibold text-gray-900 text-sm">Notes</span>
-            <button
-              onClick={handleNewNote}
-              className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-xl leading-none cursor-pointer"
-              title="New note"
-            >
-              +
-            </button>
-          </div>
+    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
+
+      {/* ── Sidebar ────────────────────────────────── */}
+      <aside
+        className="w-52 flex flex-col shrink-0"
+        style={{ background: 'var(--bg-sidebar)', borderRight: '1px solid var(--border)' }}
+      >
+        {/* Sidebar header */}
+        <div
+          className="px-4 pt-5 pb-3 flex items-center justify-between shrink-0"
+          style={{ borderBottom: '1px solid var(--border)' }}
+        >
+          <span
+            className="text-xs font-semibold uppercase tracking-widest"
+            style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-sans)' }}
+          >
+            Notes
+          </span>
+          <button
+            onClick={handleNewNote}
+            title="New note"
+            className="icon-btn w-6 h-6 flex items-center justify-center rounded-md cursor-pointer"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <line x1="7" y1="2" x2="7" y2="12" />
+              <line x1="2" y1="7" x2="12" y2="7" />
+            </svg>
+          </button>
         </div>
-        <div className="flex-1 overflow-y-auto py-2">
+
+        {/* Note list */}
+        <div className="flex-1 overflow-y-auto py-2 px-2">
           {notes.map(note => (
             <div
               key={note.id}
               onClick={() => handleSwitchNote(note.id)}
-              className={`group px-3 py-2.5 cursor-pointer flex items-center justify-between rounded-lg mx-2 transition-colors ${
-                note.id === activeId ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:bg-gray-50'
-              }`}
+              className={`group note-item px-3 py-2.5 rounded-lg mb-0.5`}
+              style={note.id === activeId ? {
+                background: 'var(--surface)',
+                color: 'var(--text-primary)',
+                boxShadow: 'inset 2px 0 0 var(--accent)',
+              } : {}}
             >
-              <span className="text-sm truncate flex-1">{note.title || 'Untitled'}</span>
-              <button
-                onClick={(e) => { e.stopPropagation(); handleDeleteNote(note.id) }}
-                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 text-xs ml-1 transition-all cursor-pointer"
+              <div className="flex items-start justify-between gap-1">
+                <span
+                  className="text-sm truncate flex-1 leading-snug"
+                  style={{
+                    fontFamily: 'var(--font-sans)',
+                    fontWeight: note.id === activeId ? 500 : 400,
+                  }}
+                >
+                  {note.title || 'Untitled'}
+                </span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleDeleteNote(note.id) }}
+                  className="opacity-0 group-hover:opacity-100 text-xs transition-opacity duration-100 cursor-pointer w-4 h-4 flex items-center justify-center shrink-0"
+                  style={{ color: 'var(--text-tertiary)' }}
+                  onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.color = '#DC2626'}
+                  onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-tertiary)'}
+                >
+                  ✕
+                </button>
+              </div>
+              <div
+                className="text-xs mt-0.5"
+                style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-sans)' }}
               >
-                ✕
-              </button>
+                {formatDate(note.updatedAt)}
+              </div>
             </div>
           ))}
         </div>
       </aside>
 
-      {/* Main area */}
+      {/* ── Main ───────────────────────────────────── */}
       <main className="flex-1 flex flex-col min-w-0">
-        <header className="flex items-center gap-3 px-6 py-3 border-b border-gray-100 shrink-0">
+        <header
+          className="flex items-center gap-3 px-8 py-4 shrink-0"
+          style={{ borderBottom: '1px solid var(--border)' }}
+        >
           <input
             value={activeNote?.title ?? ''}
             onChange={(e) => handleTitleChange(e.target.value)}
+            onKeyDown={handleTitleKeyDown}
             placeholder="Untitled"
-            className="text-lg font-semibold text-gray-900 bg-transparent outline-none flex-1 placeholder-gray-300"
+            className="text-xl outline-none flex-1 bg-transparent"
+            style={{
+              fontFamily: 'var(--font-display)',
+              color: 'var(--text-primary)',
+              fontWeight: 500,
+            }}
           />
           <button
             onClick={() => setSidebarOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+            className="header-btn flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg"
+            style={{ fontFamily: 'var(--font-sans)' }}
           >
-            ✦ AI
+            <span style={{ color: 'var(--accent)', fontSize: '12px' }}>✦</span>
+            <span>AI</span>
           </button>
         </header>
 
-        {/* WYSIWYG editor — key remounts it cleanly when switching notes */}
         <div className="flex-1 min-h-0">
           <Editor
             key={activeId}
@@ -189,11 +269,15 @@ export default function Page() {
         </div>
       </main>
 
-      {selection.text && (
+      {showToolbar && (
         <AIToolbar
-          selection={selection}
-          onInsert={handleToolbarInsert}
-          onDismiss={() => setSelection({ text: '', rect: null })}
+          rect={toolbarRect}
+          selectedText={selection.text}
+          inReview={diffActive}
+          onApply={handleApply}
+          onAccept={handleAccept}
+          onReject={handleReject}
+          onDismiss={() => setSelection({ text: '', rect: null, from: 0, to: 0 })}
         />
       )}
 
