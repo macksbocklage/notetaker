@@ -51,24 +51,18 @@ export function useNotes(userId: string) {
 
   const createNote = useCallback(async () => {
     const client = supabase.current
-    // Optimistic
-    const tempId = crypto.randomUUID()
+    // Use a client-generated UUID so the optimistic ID and DB ID are identical —
+    // no second setActiveId call, no double editor remount.
+    const id = crypto.randomUUID()
     const now = Date.now()
-    const optimistic: Note = { id: tempId, title: 'Untitled', content: '', createdAt: now, updatedAt: now }
-    setNotes(prev => [optimistic, ...prev])
-    setActiveId(tempId)
+    setNotes(prev => [{ id, title: 'Untitled', content: '', createdAt: now, updatedAt: now }, ...prev])
+    setActiveId(id)
 
-    const { data } = await client
+    const { error } = await client
       .from('notes')
-      .insert({ user_id: userId, title: 'Untitled', content: '' })
-      .select()
-      .single()
+      .insert({ id, user_id: userId, title: 'Untitled', content: '' })
 
-    if (data) {
-      const note = rowToNote(data)
-      setNotes(prev => prev.map(n => n.id === tempId ? note : n))
-      setActiveId(note.id)
-    }
+    if (error) console.error(error)
   }, [userId])
 
   const updateNote = useCallback((id: string, patch: Partial<Pick<Note, 'title' | 'content'>>) => {

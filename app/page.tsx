@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import AIToolbar from '@/components/AIToolbar'
 import AISidebar from '@/components/AISidebar'
+import SearchModal from '@/components/SearchModal'
 import { useAuth } from '@/context/AuthContext'
 import { useNotes } from '@/hooks/useNotes'
 import { SelectionState, AIMode } from '@/types'
@@ -26,6 +27,12 @@ function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+function extractFirstHeading(html: string): string | null {
+  const match = html.match(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/i)
+  if (!match) return null
+  return match[1].replace(/<[^>]*>/g, '').trim() || null
+}
+
 export default function Page() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
@@ -37,6 +44,7 @@ export default function Page() {
     useNotes(user?.id ?? '')
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
   const [selection, setSelection] = useState<SelectionState>({ text: '', rect: null, from: 0, to: 0 })
   const [diffActive, setDiffActive] = useState(false)
   const [reviewRect, setReviewRect] = useState<DOMRect | null>(null)
@@ -46,16 +54,25 @@ export default function Page() {
   const activeNote = notes.find(n => n.id === activeId) ?? notes[0]
   const [editorContent, setEditorContent] = useState(activeNote?.content ?? '')
 
+  // Ref so stable callbacks can always read the latest title
+  const activeTitleRef = useRef(activeNote?.title)
+  activeTitleRef.current = activeNote?.title
+
+  // Set to true before createNote() so the activeId effect can focus instantly
+  const focusEditorOnMount = useRef(false)
+
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/auth')
-    }
+    if (!authLoading && !user) router.push('/auth')
   }, [user, authLoading, router])
 
   useEffect(() => {
     const note = notes.find(n => n.id === activeId) ?? notes[0]
     setEditorContent(note?.content ?? '')
     setSelection({ text: '', rect: null, from: 0, to: 0 })
+    if (focusEditorOnMount.current) {
+      focusEditorOnMount.current = false
+      requestAnimationFrame(() => editorRef.current?.focus())
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId])
 
@@ -71,20 +88,42 @@ export default function Page() {
     setEditorContent(html)
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
-      updateNote(activeId, { content: html })
+      const patch: { content: string; title?: string } = { content: html }
+      // Auto-title: if note is still "Untitled", derive title from first heading
+      if (activeTitleRef.current === 'Untitled') {
+        const heading = extractFirstHeading(html)
+        if (heading) patch.title = heading
+      }
+      updateNote(activeId, patch)
     }, 400)
   }, [activeId, updateNote])
 
-  const handleNewNote = async () => {
+  const handleNewNote = useCallback(async () => {
     flushPendingSave()
+    focusEditorOnMount.current = true
     await createNote()
-  }
+  }, [flushPendingSave, createNote])
 
-  const handleSwitchNote = (id: string) => {
+  // Stable ref so the global keydown listener never goes stale
+  const handleNewNoteRef = useRef(handleNewNote)
+  handleNewNoteRef.current = handleNewNote
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const meta = e.metaKey || e.ctrlKey
+      if (meta && e.key === 'k') { e.preventDefault(); setSearchOpen(prev => !prev) }
+      if (meta && e.key === 'n') { e.preventDefault(); handleNewNoteRef.current() }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [])
+
+  const handleSwitchNote = useCallback((id: string) => {
     if (id === activeId) return
     flushPendingSave()
     setActiveId(id)
-  }
+  }, [activeId, flushPendingSave, setActiveId])
 
   const handleDeleteNote = (id: string) => {
     if (id === activeId) flushPendingSave()
@@ -94,6 +133,23 @@ export default function Page() {
   const handleTitleChange = (title: string) => {
     updateNote(activeId, { title })
   }
+
+  const handleExport = useCallback(async () => {
+    if (!activeNote) return
+    const { default: TurndownService } = await import('turndown')
+    const td = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' })
+    const body = td.turndown(editorContent || activeNote.content)
+    const markdown = `# ${activeNote.title}\n\n${body}`.trimEnd() + '\n'
+    const blob = new Blob([markdown], { type: 'text/markdown' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${activeNote.title.replace(/[^a-z0-9\s]/gi, '').trim().replace(/\s+/g, '-').toLowerCase() || 'untitled'}.md`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }, [activeNote, editorContent])
 
   const handleApply = useCallback((text: string, mode: AIMode) => {
     const { from, to, rect } = selectionRef.current
@@ -161,10 +217,22 @@ export default function Page() {
           >
             Notes
           </span>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
+            {/* Search */}
+            <button
+              onClick={() => setSearchOpen(true)}
+              title="Search notes (⌘K)"
+              className="icon-btn w-6 h-6 flex items-center justify-center rounded-md cursor-pointer"
+            >
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <circle cx="5.5" cy="5.5" r="3.5" />
+                <line x1="8.5" y1="8.5" x2="12" y2="12" />
+              </svg>
+            </button>
+            {/* New note */}
             <button
               onClick={handleNewNote}
-              title="New note"
+              title="New note (⌘N)"
               className="icon-btn w-6 h-6 flex items-center justify-center rounded-md cursor-pointer"
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
@@ -172,16 +240,17 @@ export default function Page() {
                 <line x1="2" y1="7" x2="12" y2="7" />
               </svg>
             </button>
+            {/* Sign out */}
             <button
               onClick={handleSignOut}
               title="Sign out"
               className="icon-btn w-6 h-6 flex items-center justify-center rounded-md cursor-pointer"
               style={{ color: 'var(--text-tertiary)' }}
             >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 2H2a1 1 0 00-1 1v8a1 1 0 001 1h3" />
-                <polyline points="10 10 13 7 10 4" />
-                <line x1="13" y1="7" x2="5" y2="7" />
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 2H2a1 1 0 00-1 1v7a1 1 0 001 1h3" />
+                <polyline points="9 9 12 6.5 9 4" />
+                <line x1="12" y1="6.5" x2="4.5" y2="6.5" />
               </svg>
             </button>
           </div>
@@ -193,10 +262,11 @@ export default function Page() {
             <div
               key={note.id}
               onClick={() => handleSwitchNote(note.id)}
-              className={`group note-item px-3 py-2.5 rounded-lg mb-0.5`}
+              className="group note-item px-3 py-2.5 rounded-lg mb-0.5"
               style={note.id === activeId ? {
                 background: 'var(--surface)',
                 color: 'var(--text-primary)',
+                boxShadow: 'inset 2px 0 0 var(--accent)',
               } : {}}
             >
               <div className="flex items-start justify-between gap-1">
@@ -248,6 +318,21 @@ export default function Page() {
               fontWeight: 500,
             }}
           />
+          {/* Export as Markdown */}
+          <button
+            onClick={handleExport}
+            title="Export as Markdown"
+            className="header-btn flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg"
+            style={{ fontFamily: 'var(--font-sans)' }}
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="6" y1="1" x2="6" y2="8" />
+              <polyline points="3 5.5 6 8.5 9 5.5" />
+              <line x1="1" y1="11" x2="11" y2="11" />
+            </svg>
+            <span>.md</span>
+          </button>
+          {/* AI sidebar */}
           <button
             onClick={() => setSidebarOpen(true)}
             className="header-btn flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg"
@@ -274,6 +359,13 @@ export default function Page() {
         onClose={() => setSidebarOpen(false)}
         documentContent={aiContext}
         onInsert={handleSidebarInsert}
+      />
+
+      <SearchModal
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        notes={notes}
+        onSelect={handleSwitchNote}
       />
 
       {showToolbar && (
