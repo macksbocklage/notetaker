@@ -104,9 +104,12 @@ export default function Page() {
     await createNote()
   }, [flushPendingSave, createNote])
 
-  // Stable ref so the global keydown listener never goes stale
+  // Stable refs so the global keydown listener never goes stale
   const handleNewNoteRef = useRef(handleNewNote)
   handleNewNoteRef.current = handleNewNote
+
+  const handleDeleteNoteRef = useRef(() => handleDeleteNote(activeId))
+  handleDeleteNoteRef.current = () => handleDeleteNote(activeId)
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -114,6 +117,8 @@ export default function Page() {
       const meta = e.metaKey || e.ctrlKey
       if (meta && e.key === 'k') { e.preventDefault(); setSearchOpen(prev => !prev) }
       if (meta && e.key === 'n') { e.preventDefault(); handleNewNoteRef.current() }
+      if (meta && e.key === 'e') { e.preventDefault(); setSidebarOpen(prev => !prev) }
+      if (meta && e.key === 'w') { e.preventDefault(); handleDeleteNoteRef.current() }
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
@@ -366,6 +371,9 @@ export default function Page() {
         onClose={() => setSearchOpen(false)}
         notes={notes}
         onSelect={handleSwitchNote}
+        onNewNote={() => { setSearchOpen(false); handleNewNote() }}
+        onDeleteNote={() => handleDeleteNote(activeId)}
+        onExport={handleExport}
       />
 
       {showToolbar && (
