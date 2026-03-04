@@ -23,7 +23,7 @@ function buildPrompt(request: AIRequest): string {
       return `You are a helpful writing assistant. The user has the following document context:\n\n${context ?? ''}\n\nUser prompt: ${prompt}\n\nGenerate well-written markdown content that fits naturally into this document. Return only the content, no preamble.`
 
     case 'custom':
-      return `You are a helpful writing assistant embedded in a markdown notes editor.\n\nDocument context:\n${context ?? '(empty document)'}\n\nUser request: ${prompt}\n\nRespond first with a one-sentence summary (in markdown) of your main answer, then follow with your full response in markdown. Be concise and directly useful.`
+      return `You are a helpful writing assistant embedded in a markdown notes editor.\n\nDocument context:\n${context ?? '(empty document)'}\n\nUser request: ${prompt}\n\nRespond first with a one-sentence summary (in markdown) of your main answer. It should be a single sentence that captures the main idea of your response. Make it easy to understand and follow. Make sure it is SHORT and to the point. Do not include any phrases like "Summary:" preceeding your response. Then follow with your full response in markdown. Be concise and directly useful.`
 
     default:
       return prompt ?? ''
