@@ -156,7 +156,7 @@ export default function Page() {
   const toolbarRect = diffActive ? reviewRect : selection.rect
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
+    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--bg)', contain: 'layout' }}>
 
       {/* ── Sidebar ────────────────────────────────── */}
       <aside
@@ -269,6 +269,13 @@ export default function Page() {
         </div>
       </main>
 
+      <AISidebar
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        documentContent={aiContext}
+        onInsert={handleSidebarInsert}
+      />
+
       {showToolbar && (
         <AIToolbar
           rect={toolbarRect}
@@ -280,13 +287,6 @@ export default function Page() {
           onDismiss={() => setSelection({ text: '', rect: null, from: 0, to: 0 })}
         />
       )}
-
-      <AISidebar
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        documentContent={aiContext}
-        onInsert={handleSidebarInsert}
-      />
     </div>
   )
 }

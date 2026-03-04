@@ -26,7 +26,7 @@ export default function AISidebar({ open, onClose, documentContent, onInsert }: 
   }, [streamedText, history])
 
   useEffect(() => {
-    if (open) textareaRef.current?.focus()
+    if (open) setTimeout(() => textareaRef.current?.focus(), 100)
   }, [open])
 
   const handleSubmit = async () => {
@@ -57,30 +57,27 @@ export default function AISidebar({ open, onClose, documentContent, onInsert }: 
   const canSend = prompt.trim().length > 0 && !streaming
 
   return (
-    <>
-      {/* Backdrop */}
+    // Outer: animates width to push the document over
+    <div
+      style={{
+        width: open ? '380px' : '0',
+        flexShrink: 0,
+        overflow: 'hidden',
+        transition: open
+          ? 'width 0.32s cubic-bezier(0.16, 1, 0.3, 1)'
+          : 'width 0.24s cubic-bezier(0.4, 0, 0.6, 1)',
+      }}
+    >
+      {/* Inner: always 380px wide; fades in after the push starts */}
       <div
-        className="fixed inset-0 z-30 transition-opacity duration-300"
-        style={{
-          background: 'rgba(28, 26, 23, 0.15)',
-          opacity: open ? 1 : 0,
-          pointerEvents: open ? 'auto' : 'none',
-        }}
-        onClick={onClose}
-      />
-
-      {/* Panel */}
-      <div
-        className="fixed right-0 top-0 h-full z-40 flex flex-col"
+        className="flex flex-col"
         style={{
           width: '380px',
+          height: '100%',
           background: 'var(--bg)',
           borderLeft: '1px solid var(--border)',
-          boxShadow: '-8px 0 40px rgba(28, 26, 23, 0.08)',
-          transform: open ? 'translateX(0)' : 'translateX(100%)',
-          transition: open
-            ? 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)'
-            : 'transform 0.22s cubic-bezier(0.4, 0, 0.6, 1)',
+          opacity: open ? 1 : 0,
+          transition: open ? 'opacity 0.18s ease 0.08s' : 'opacity 0.1s ease',
         }}
       >
         {/* Header */}
@@ -277,6 +274,6 @@ export default function AISidebar({ open, onClose, documentContent, onInsert }: 
           </div>
         </div>
       </div>
-    </>
+    </div>
   )
 }
