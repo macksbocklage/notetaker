@@ -68,6 +68,7 @@ export function useNotes(userId: string) {
   const updateNote = useCallback((id: string, patch: Partial<Pick<Note, 'title' | 'content'>>) => {
     setNotes(prev =>
       prev.map(n => n.id === id ? { ...n, ...patch, updatedAt: Date.now() } : n)
+        .sort((a, b) => b.updatedAt - a.updatedAt)
     )
     supabase.current
       .from('notes')

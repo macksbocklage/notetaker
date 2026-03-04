@@ -4,7 +4,7 @@ import type { Note } from '@/types'
 
 // ── Action definitions ────────────────────────────────────────────────────────
 
-type ActionId = 'new-note' | 'delete-note' | 'export-md'
+type ActionId = 'new-note' | 'delete-note' | 'export-md' | 'focus-mode'
 
 interface ActionDef {
   id: ActionId
@@ -14,9 +14,10 @@ interface ActionDef {
 }
 
 const ACTIONS: ActionDef[] = [
-  { id: 'new-note',    label: 'New note',               terms: ['create', 'add'],                   shortcut: '⌘N' },
-  { id: 'delete-note', label: 'Delete note',             terms: ['remove', 'trash', 'erase']                       },
-  { id: 'export-md',   label: 'Download as Markdown',    terms: ['export', 'save', 'md', 'file']                   },
+  { id: 'new-note',    label: 'New note',               terms: ['create', 'add'],                          shortcut: '⌘N'  },
+  { id: 'focus-mode',  label: 'Toggle focus mode',      terms: ['distraction', 'zen', 'hide', 'fullscreen'], shortcut: '⌘⇧F' },
+  { id: 'delete-note', label: 'Delete note',             terms: ['remove', 'trash', 'erase']                              },
+  { id: 'export-md',   label: 'Download as Markdown',    terms: ['export', 'save', 'md', 'file']                          },
 ]
 
 function actionMatches(a: ActionDef, q: string) {
@@ -73,6 +74,11 @@ function ActionIcon({ id }: { id: ActionId }) {
       <path d="M2 3l.7 7.3A1 1 0 003.7 11h3.6a1 1 0 001-.7L9 3" />
     </svg>
   )
+  if (id === 'focus-mode') return (
+    <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" style={s}>
+      <polyline points="2.5 5.5 1 5.5 1 1 5.5 1 5.5 2.5" /><polyline points="5.5 8.5 5.5 10 10 10 10 5.5 8.5 5.5" />
+    </svg>
+  )
   // export-md
   return (
     <svg width="11" height="12" viewBox="0 0 11 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={s}>
@@ -93,9 +99,10 @@ interface Props {
   onNewNote: () => void
   onDeleteNote: () => void
   onExport: () => void
+  onFocusMode: () => void
 }
 
-export default function SearchModal({ open, onClose, notes, onSelect, onNewNote, onDeleteNote, onExport }: Props) {
+export default function SearchModal({ open, onClose, notes, onSelect, onNewNote, onDeleteNote, onExport, onFocusMode }: Props) {
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -140,6 +147,7 @@ export default function SearchModal({ open, onClose, notes, onSelect, onNewNote,
       if (item.def.id === 'new-note')    onNewNote()
       if (item.def.id === 'delete-note') onDeleteNote()
       if (item.def.id === 'export-md')   onExport()
+      if (item.def.id === 'focus-mode')  onFocusMode()
     } else {
       onSelect(item.note.id)
     }

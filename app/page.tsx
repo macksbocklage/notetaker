@@ -49,6 +49,21 @@ export default function Page() {
   const [diffActive, setDiffActive] = useState(false)
   const [reviewRect, setReviewRect] = useState<DOMRect | null>(null)
   const [reviewMode, setReviewMode] = useState<AIMode | null>(null)
+  const [darkMode, setDarkMode] = useState(false)
+  const [focusMode, setFocusMode] = useState(false)
+
+  // Dark mode — init from localStorage, apply to <html>
+  useEffect(() => {
+    if (localStorage.getItem('theme') === 'dark') setDarkMode(true)
+  }, [])
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('theme-dark')
+    } else {
+      document.documentElement.classList.remove('theme-dark')
+    }
+    localStorage.setItem('theme', darkMode ? 'dark' : 'light')
+  }, [darkMode])
 
   selectionRef.current = selection
   const activeNote = notes.find(n => n.id === activeId) ?? notes[0]
@@ -89,11 +104,9 @@ export default function Page() {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
       const patch: { content: string; title?: string } = { content: html }
-      // Auto-title: if note is still "Untitled", derive title from first heading
-      if (activeTitleRef.current === 'Untitled') {
-        const heading = extractFirstHeading(html)
-        if (heading) patch.title = heading
-      }
+      // Auto-title: always sync title from first heading if one exists
+      const heading = extractFirstHeading(html)
+      if (heading) patch.title = heading
       updateNote(activeId, patch)
     }, 400)
   }, [activeId, updateNote])
@@ -119,6 +132,7 @@ export default function Page() {
       if (meta && e.key === 'n') { e.preventDefault(); handleNewNoteRef.current() }
       if (meta && e.key === 'e') { e.preventDefault(); setSidebarOpen(prev => !prev) }
       if (meta && e.key === 'w') { e.preventDefault(); handleDeleteNoteRef.current() }
+      if (meta && e.shiftKey && e.key.toLowerCase() === 'f') { e.preventDefault(); setFocusMode(prev => !prev) }
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
@@ -209,7 +223,7 @@ export default function Page() {
       {/* ── Sidebar ─────────────────────────────────── */}
       <aside
         className="w-52 flex flex-col shrink-0"
-        style={{ background: 'var(--bg-sidebar)', borderRight: '1px solid var(--border)' }}
+        style={{ background: 'var(--bg-sidebar)', borderRight: '1px solid var(--border)', display: focusMode ? 'none' : undefined }}
       >
         <div
           className="px-4 pt-4 pb-3 flex items-center justify-between shrink-0"
@@ -281,7 +295,13 @@ export default function Page() {
       <main className="flex-1 flex flex-col min-w-0">
         <header
           className="flex items-center gap-3 px-8 py-4 shrink-0"
-          style={{ borderBottom: '1px solid var(--border)' }}
+          style={{
+            borderBottom: '1px solid var(--border)',
+            opacity: focusMode ? 0.2 : 1,
+            transition: 'opacity 0.3s ease',
+          }}
+          onMouseEnter={focusMode ? e => { (e.currentTarget as HTMLElement).style.opacity = '1' } : undefined}
+          onMouseLeave={focusMode ? e => { (e.currentTarget as HTMLElement).style.opacity = '0.2' } : undefined}
         >
           <input
             value={activeNote?.title ?? ''}
@@ -291,13 +311,50 @@ export default function Page() {
             className="text-xl outline-none flex-1 bg-transparent"
             style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)', fontWeight: 500 }}
           />
-          <button onClick={handleExport} title="Export as Markdown" className="header-btn flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg" style={{ fontFamily: 'var(--font-sans)' }}>
+          <button
+            onClick={() => setFocusMode(f => !f)}
+            title={focusMode ? 'Exit focus mode (⌘⇧F)' : 'Focus mode (⌘⇧F)'}
+            className="icon-btn w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer"
+            style={{ color: focusMode ? 'var(--accent)' : undefined }}
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              {focusMode ? (
+                <><polyline points="1 5 1 1 5 1" /><polyline points="9 1 13 1 13 5" /><polyline points="13 9 13 13 9 13" /><polyline points="5 13 1 13 1 9" /></>
+              ) : (
+                <><polyline points="3 7 1 7 1 1 7 1 7 3" /><polyline points="7 11 7 13 13 13 13 7 11 7" /><line x1="1" y1="13" x2="5.5" y2="8.5" /><line x1="8.5" y1="5.5" x2="13" y2="1" /></>
+              )}
+            </svg>
+          </button>
+          <button
+            onClick={() => setDarkMode(d => !d)}
+            title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="icon-btn w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer"
+          >
+            {darkMode ? (
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <circle cx="7" cy="7" r="3" /><line x1="7" y1="1" x2="7" y2="2.5" /><line x1="7" y1="11.5" x2="7" y2="13" /><line x1="1" y1="7" x2="2.5" y2="7" /><line x1="11.5" y1="7" x2="13" y2="7" /><line x1="2.93" y1="2.93" x2="4" y2="4" /><line x1="10" y1="10" x2="11.07" y2="11.07" /><line x1="11.07" y1="2.93" x2="10" y2="4" /><line x1="4" y1="10" x2="2.93" y2="11.07" />
+              </svg>
+            ) : (
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <path d="M11.5 8.5A5.5 5.5 0 014.5 1.5a5.5 5.5 0 100 10 5.5 5.5 0 007-3z" />
+              </svg>
+            )}
+          </button>
+          <button
+            onClick={handleExport}
+            title="Export as Markdown"
+            className="header-btn flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg"
+            style={{ fontFamily: 'var(--font-sans)', height: '36px' }}
+          >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="6" y1="1" x2="6" y2="8" /><polyline points="3 5.5 6 8.5 9 5.5" /><line x1="1" y1="11" x2="11" y2="11" />
             </svg>
-            <span>.md</span>
           </button>
-          <button onClick={() => setSidebarOpen(true)} className="header-btn flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg" style={{ fontFamily: 'var(--font-sans)' }}>
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="header-btn flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg"
+            style={{ fontFamily: 'var(--font-sans)', height: '36px' }}
+          >
             <span style={{ color: 'var(--accent)', fontSize: '12px' }}>✦</span>
             <span>AI</span>
           </button>
@@ -329,6 +386,7 @@ export default function Page() {
         onNewNote={() => { setSearchOpen(false); handleNewNote() }}
         onDeleteNote={() => handleDeleteNote(activeId)}
         onExport={handleExport}
+        onFocusMode={() => { setSearchOpen(false); setFocusMode(f => !f) }}
       />
 
       {showToolbar && (
