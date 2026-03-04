@@ -18,4 +18,6 @@ export interface AIRequest {
 export interface SelectionState {
   text: string
   rect: DOMRect | null
+  from: number   // ProseMirror doc position
+  to: number
 }

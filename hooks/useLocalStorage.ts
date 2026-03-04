@@ -2,24 +2,29 @@
 import { useState, useEffect } from 'react'
 
 export function useLocalStorage<T>(key: string, initialValue: T) {
-  const [storedValue, setStoredValue] = useState<T>(() => {
-    if (typeof window === 'undefined') return initialValue
+  // Always start with initialValue to match server render (avoids hydration mismatch)
+  const [storedValue, setStoredValue] = useState<T>(initialValue)
+  const [isHydrated, setIsHydrated] = useState(false)
+
+  // Read from localStorage after mount (one-time)
+  useEffect(() => {
     try {
       const item = window.localStorage.getItem(key)
-      return item ? (JSON.parse(item) as T) : initialValue
-    } catch {
-      return initialValue
-    }
-  })
+      if (item !== null) setStoredValue(JSON.parse(item) as T)
+    } catch {}
+    setIsHydrated(true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
+  // Write only after hydration to avoid overwriting stored data before the read fires
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (!isHydrated) return
     try {
       window.localStorage.setItem(key, JSON.stringify(storedValue))
     } catch (error) {
       console.error('localStorage write failed:', error)
     }
-  }, [key, storedValue])
+  }, [key, storedValue, isHydrated])
 
   return [storedValue, setStoredValue] as const
 }

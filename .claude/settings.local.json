@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.npmjs.com)",
+      "WebSearch",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --app --no-src-dir --import-alias \"@/*\" --yes 2>&1)",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --app --no-src-dir --import-alias \"@/*\" --yes --skip-git 2>&1)",
+      "Bash(cp -r /tmp/notetaker-init/. /Users/maxbocklage/notetaker/ --backup=none 2>&1 && echo \"Done\" || echo \"Error\")",
+      "Bash(npm install openai react-markdown remark-gfm rehype-highlight highlight.js @uiw/react-codemirror @codemirror/lang-markdown @codemirror/language-data clsx tailwind-merge 2>&1 | tail -10)",
+      "Bash(npm install -D @tailwindcss/typography 2>&1 | tail -5)",
+      "Bash(npx tsc --noEmit 2>&1)",
+      "Bash(npm run build 2>&1)",
+      "Bash(node -e \"const cm = require\\('@uiw/react-codemirror'\\); console.log\\(Object.keys\\(cm\\).filter\\(k => k.includes\\('update'\\) || k.includes\\('Update'\\) || k.includes\\('View'\\)\\)\\)\" 2>&1 | head -20)",
+      "Bash(npm uninstall @uiw/react-codemirror @codemirror/lang-markdown @codemirror/language-data react-markdown remark-gfm rehype-highlight highlight.js 2>&1 | tail -5)",
+      "Bash(npm install @tiptap/react @tiptap/pm @tiptap/starter-kit @tiptap/extension-placeholder marked 2>&1 | tail -8)",
+      "Bash(git init && git status 2>&1)",
+      "Bash(git add .gitignore README.md app/ components/ eslint.config.mjs hooks/ next.config.ts package-lock.json package.json postcss.config.mjs public/ tsconfig.json types/ && git status 2>&1)",
+      "Bash(git commit -m \"$\\(cat <<'EOF'\nInitial commit: AI markdown notes editor\n\nNext.js 16 WYSIWYG notes app with Tiptap editor, OpenAI streaming,\nfloating AI toolbar on text selection, and AI chat sidebar.\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(gh repo create notetaker --public --description \"AI-powered WYSIWYG markdown notes app built with Next.js and OpenAI\" --source . --remote origin --push 2>&1)",
+      "Bash(git add app/globals.css app/layout.tsx app/page.tsx components/AISidebar.tsx components/AIToolbar.tsx components/Editor.tsx)",
+      "Bash(git commit -m \"$\\(cat <<'EOF'\nRedesign UI with warm editorial aesthetic and improved UX\n\n- Add Playfair Display + Lora serif fonts for titles and editor body\n- Introduce warm off-white color system \\(CSS variables throughout\\)\n- Center editor content at max-w-3xl for optimal reading line length\n- Show relative timestamps on sidebar note items for easier navigation\n- Add amber left-border accent on active note, spring easing on AI sidebar\n- Glassmorphic AI toolbar with scale+fade entrance animation\n- Refined AI sidebar chat bubbles and send button states\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push)",
+      "Bash(claude mcp add --scope project --transport http supabase \"https://mcp.supabase.com/mcp?project_ref=tigybmypogsmfiutqjpk\")",
+      "mcp__supabase__get_project_url",
+      "mcp__supabase__list_tables",
+      "mcp__supabase__get_publishable_keys",
+      "Bash(npm install @supabase/supabase-js @supabase/ssr 2>&1)",
+      "mcp__supabase__apply_migration"
+    ]
+  }
+}

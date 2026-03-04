@@ -1,23 +1,16 @@
 'use client'
 import { useRef, useState, useCallback, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import AIToolbar from '@/components/AIToolbar'
 import AISidebar from '@/components/AISidebar'
-import { useLocalStorage } from '@/hooks/useLocalStorage'
-import { Note, SelectionState, AIMode } from '@/types'
+import { useAuth } from '@/context/AuthContext'
+import { useNotes } from '@/hooks/useNotes'
+import { SelectionState, AIMode } from '@/types'
 import type { EditorHandle } from '@/components/Editor'
+import { createClient } from '@/lib/supabase/client'
 
 const Editor = dynamic(() => import('@/components/Editor'), { ssr: false })
-
-function createNote(): Note {
-  return {
-    id: crypto.randomUUID(),
-    title: 'Untitled',
-    content: '',
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  }
-}
 
 function formatDate(timestamp: number): string {
   const now = Date.now()
@@ -33,31 +26,34 @@ function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-const defaultNote = createNote()
-
 export default function Page() {
+  const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
   const editorRef = useRef<EditorHandle>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const notesRef = useRef<Note[]>([])
   const selectionRef = useRef<SelectionState>({ text: '', rect: null, from: 0, to: 0 })
 
-  const [notes, setNotes] = useLocalStorage<Note[]>('notetaker-notes-v2', [defaultNote])
-  const [activeId, setActiveId] = useLocalStorage<string>('notetaker-active-id-v2', defaultNote.id)
+  const { notes, activeId, setActiveId, loading: notesLoading, createNote, updateNote, deleteNote } =
+    useNotes(user?.id ?? '')
+
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [selection, setSelection] = useState<SelectionState>({ text: '', rect: null, from: 0, to: 0 })
-
   const [diffActive, setDiffActive] = useState(false)
   const [reviewRect, setReviewRect] = useState<DOMRect | null>(null)
   const [reviewMode, setReviewMode] = useState<AIMode | null>(null)
 
-  notesRef.current = notes
   selectionRef.current = selection
   const activeNote = notes.find(n => n.id === activeId) ?? notes[0]
-
   const [editorContent, setEditorContent] = useState(activeNote?.content ?? '')
 
   useEffect(() => {
-    const note = notesRef.current.find(n => n.id === activeId) ?? notesRef.current[0]
+    if (!authLoading && !user) {
+      router.push('/auth')
+    }
+  }, [user, authLoading, router])
+
+  useEffect(() => {
+    const note = notes.find(n => n.id === activeId) ?? notes[0]
     setEditorContent(note?.content ?? '')
     setSelection({ text: '', rect: null, from: 0, to: 0 })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -67,27 +63,21 @@ export default function Page() {
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current)
       saveTimerRef.current = null
-      setNotes(prev =>
-        prev.map(n => n.id === activeId ? { ...n, content: editorContent, updatedAt: Date.now() } : n)
-      )
+      updateNote(activeId, { content: editorContent })
     }
-  }, [activeId, editorContent, setNotes])
+  }, [activeId, editorContent, updateNote])
 
   const handleContentChange = useCallback((html: string) => {
     setEditorContent(html)
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
-      setNotes(prev =>
-        prev.map(n => n.id === activeId ? { ...n, content: html, updatedAt: Date.now() } : n)
-      )
+      updateNote(activeId, { content: html })
     }, 400)
-  }, [activeId, setNotes])
+  }, [activeId, updateNote])
 
-  const handleNewNote = () => {
+  const handleNewNote = async () => {
     flushPendingSave()
-    const note = createNote()
-    setNotes(prev => [note, ...prev])
-    setActiveId(note.id)
+    await createNote()
   }
 
   const handleSwitchNote = (id: string) => {
@@ -98,22 +88,11 @@ export default function Page() {
 
   const handleDeleteNote = (id: string) => {
     if (id === activeId) flushPendingSave()
-    setNotes(prev => {
-      const next = prev.filter(n => n.id !== id)
-      if (next.length === 0) {
-        const fresh = createNote()
-        setActiveId(fresh.id)
-        return [fresh]
-      }
-      if (activeId === id) setActiveId(next[0].id)
-      return next
-    })
+    deleteNote(id)
   }
 
   const handleTitleChange = (title: string) => {
-    setNotes(prev =>
-      prev.map(n => n.id === activeId ? { ...n, title, updatedAt: Date.now() } : n)
-    )
+    updateNote(activeId, { title })
   }
 
   const handleApply = useCallback((text: string, mode: AIMode) => {
@@ -151,6 +130,14 @@ export default function Page() {
     }
   }
 
+  const handleSignOut = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/auth')
+  }
+
+  if (authLoading || notesLoading || !user) return null
+
   const aiContext = editorContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
   const showToolbar = selection.text.length > 0 || diffActive
   const toolbarRect = diffActive ? reviewRect : selection.rect
@@ -174,16 +161,30 @@ export default function Page() {
           >
             Notes
           </span>
-          <button
-            onClick={handleNewNote}
-            title="New note"
-            className="icon-btn w-6 h-6 flex items-center justify-center rounded-md cursor-pointer"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-              <line x1="7" y1="2" x2="7" y2="12" />
-              <line x1="2" y1="7" x2="12" y2="7" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleNewNote}
+              title="New note"
+              className="icon-btn w-6 h-6 flex items-center justify-center rounded-md cursor-pointer"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <line x1="7" y1="2" x2="7" y2="12" />
+                <line x1="2" y1="7" x2="12" y2="7" />
+              </svg>
+            </button>
+            <button
+              onClick={handleSignOut}
+              title="Sign out"
+              className="icon-btn w-6 h-6 flex items-center justify-center rounded-md cursor-pointer"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 2H2a1 1 0 00-1 1v8a1 1 0 001 1h3" />
+                <polyline points="10 10 13 7 10 4" />
+                <line x1="13" y1="7" x2="5" y2="7" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Note list */}
