@@ -206,14 +206,13 @@ export default function Page() {
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: 'var(--bg)', contain: 'layout' }}>
 
-      {/* ── Sidebar ────────────────────────────────── */}
+      {/* ── Sidebar ─────────────────────────────────── */}
       <aside
         className="w-52 flex flex-col shrink-0"
         style={{ background: 'var(--bg-sidebar)', borderRight: '1px solid var(--border)' }}
       >
-        {/* Sidebar header */}
         <div
-          className="px-4 pt-5 pb-3 flex items-center justify-between shrink-0"
+          className="px-4 pt-4 pb-3 flex items-center justify-between shrink-0"
           style={{ borderBottom: '1px solid var(--border)' }}
         >
           <span
@@ -223,45 +222,24 @@ export default function Page() {
             Notes
           </span>
           <div className="flex items-center gap-0.5">
-            {/* Search */}
-            <button
-              onClick={() => setSearchOpen(true)}
-              title="Search notes (⌘K)"
-              className="icon-btn w-6 h-6 flex items-center justify-center rounded-md cursor-pointer"
-            >
+            <button onClick={() => setSearchOpen(true)} title="Search notes (⌘K)" className="icon-btn w-6 h-6 flex items-center justify-center rounded-md cursor-pointer">
               <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <circle cx="5.5" cy="5.5" r="3.5" />
-                <line x1="8.5" y1="8.5" x2="12" y2="12" />
+                <circle cx="5.5" cy="5.5" r="3.5" /><line x1="8.5" y1="8.5" x2="12" y2="12" />
               </svg>
             </button>
-            {/* New note */}
-            <button
-              onClick={handleNewNote}
-              title="New note (⌘N)"
-              className="icon-btn w-6 h-6 flex items-center justify-center rounded-md cursor-pointer"
-            >
+            <button onClick={handleNewNote} title="New note (⌘N)" className="icon-btn w-6 h-6 flex items-center justify-center rounded-md cursor-pointer">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <line x1="7" y1="2" x2="7" y2="12" />
-                <line x1="2" y1="7" x2="12" y2="7" />
+                <line x1="7" y1="2" x2="7" y2="12" /><line x1="2" y1="7" x2="12" y2="7" />
               </svg>
             </button>
-            {/* Sign out */}
-            <button
-              onClick={handleSignOut}
-              title="Sign out"
-              className="icon-btn w-6 h-6 flex items-center justify-center rounded-md cursor-pointer"
-              style={{ color: 'var(--text-tertiary)' }}
-            >
+            <button onClick={handleSignOut} title="Sign out" className="icon-btn w-6 h-6 flex items-center justify-center rounded-md cursor-pointer" style={{ color: 'var(--text-tertiary)' }}>
               <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 2H2a1 1 0 00-1 1v7a1 1 0 001 1h3" />
-                <polyline points="9 9 12 6.5 9 4" />
-                <line x1="12" y1="6.5" x2="4.5" y2="6.5" />
+                <path d="M5 2H2a1 1 0 00-1 1v7a1 1 0 001 1h3" /><polyline points="9 9 12 6.5 9 4" /><line x1="12" y1="6.5" x2="4.5" y2="6.5" />
               </svg>
             </button>
           </div>
         </div>
 
-        {/* Note list */}
         <div className="flex-1 overflow-y-auto py-2 px-2">
           {notes.map(note => (
             <div
@@ -277,10 +255,7 @@ export default function Page() {
               <div className="flex items-start justify-between gap-1">
                 <span
                   className="text-sm truncate flex-1 leading-snug"
-                  style={{
-                    fontFamily: 'var(--font-sans)',
-                    fontWeight: note.id === activeId ? 500 : 400,
-                  }}
+                  style={{ fontFamily: 'var(--font-sans)', fontWeight: note.id === activeId ? 500 : 400 }}
                 >
                   {note.title || 'Untitled'}
                 </span>
@@ -294,10 +269,7 @@ export default function Page() {
                   ✕
                 </button>
               </div>
-              <div
-                className="text-xs mt-0.5"
-                style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-sans)' }}
-              >
+              <div className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-sans)' }}>
                 {formatDate(note.updatedAt)}
               </div>
             </div>
@@ -305,7 +277,7 @@ export default function Page() {
         </div>
       </aside>
 
-      {/* ── Main ───────────────────────────────────── */}
+      {/* ── Main ────────────────────────────────────── */}
       <main className="flex-1 flex flex-col min-w-0">
         <header
           className="flex items-center gap-3 px-8 py-4 shrink-0"
@@ -317,32 +289,15 @@ export default function Page() {
             onKeyDown={handleTitleKeyDown}
             placeholder="Untitled"
             className="text-xl outline-none flex-1 bg-transparent"
-            style={{
-              fontFamily: 'var(--font-display)',
-              color: 'var(--text-primary)',
-              fontWeight: 500,
-            }}
+            style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)', fontWeight: 500 }}
           />
-          {/* Export as Markdown */}
-          <button
-            onClick={handleExport}
-            title="Export as Markdown"
-            className="header-btn flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg"
-            style={{ fontFamily: 'var(--font-sans)' }}
-          >
+          <button onClick={handleExport} title="Export as Markdown" className="header-btn flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg" style={{ fontFamily: 'var(--font-sans)' }}>
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="6" y1="1" x2="6" y2="8" />
-              <polyline points="3 5.5 6 8.5 9 5.5" />
-              <line x1="1" y1="11" x2="11" y2="11" />
+              <line x1="6" y1="1" x2="6" y2="8" /><polyline points="3 5.5 6 8.5 9 5.5" /><line x1="1" y1="11" x2="11" y2="11" />
             </svg>
             <span>.md</span>
           </button>
-          {/* AI sidebar */}
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="header-btn flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg"
-            style={{ fontFamily: 'var(--font-sans)' }}
-          >
+          <button onClick={() => setSidebarOpen(true)} className="header-btn flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg" style={{ fontFamily: 'var(--font-sans)' }}>
             <span style={{ color: 'var(--accent)', fontSize: '12px' }}>✦</span>
             <span>AI</span>
           </button>
