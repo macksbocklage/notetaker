@@ -2,15 +2,15 @@
 @plugin "@tailwindcss/typography";
 
 :root {
-  --bg: #FAF9F5;
-  --bg-sidebar: #F1EEE6;
-  --surface: #E8E3D8;
-  --border: #DDD9CE;
-  --text-primary: #1C1A17;
-  --text-secondary: #6E6A62;
-  --text-tertiary: #ABA79F;
-  --accent: #9B6B1A;
-  --accent-hover: #7A5214;
+  --bg: #FFFFFF;
+  --bg-sidebar: #F5F5F5;
+  --surface: #EBEBEB;
+  --border: #E0E0E0;
+  --text-primary: #111111;
+  --text-secondary: #666666;
+  --text-tertiary: #AAAAAA;
+  --accent: #111111;
+  --accent-hover: #333333;
 }
 
 body {
@@ -196,40 +196,40 @@ div:focus { outline: none; }
 
 /* ── AI diff marks ─────────────────────────────────── */
 .ai-deletion {
-  background: #FFE8E8;
-  color: #991B1B;
+  background: #F0F0F0;
+  color: #888888;
   text-decoration: line-through;
-  text-decoration-color: #FCA5A5;
+  text-decoration-color: #AAAAAA;
   border-radius: 2px;
   padding: 0 2px;
 }
 .ai-insertion {
-  background: #E7F4E8;
-  color: #166534;
+  background: #E8E8E8;
+  color: #111111;
   border-radius: 2px;
   padding: 0 2px;
 }
 
 /* ── Dark mode ──────────────────────────────────────── */
 html.theme-dark {
-  --bg: #1A1816;
-  --bg-sidebar: #141210;
-  --surface: #252220;
-  --border: #2E2B28;
-  --text-primary: #EDE7DC;
-  --text-secondary: #8A8278;
-  --text-tertiary: #564E47;
-  --accent: #C4873A;
-  --accent-hover: #D99A50;
+  --bg: #0A0A0A;
+  --bg-sidebar: #111111;
+  --surface: #1E1E1E;
+  --border: #2A2A2A;
+  --text-primary: #F0F0F0;
+  --text-secondary: #888888;
+  --text-tertiary: #555555;
+  --accent: #F0F0F0;
+  --accent-hover: #CCCCCC;
 }
 html.theme-dark .ai-deletion {
-  background: #3D1515;
-  color: #FCA5A5;
-  text-decoration-color: #7F1D1D;
+  background: #2A2A2A;
+  color: #888888;
+  text-decoration-color: #555555;
 }
 html.theme-dark .ai-insertion {
-  background: #0F2A18;
-  color: #86EFAC;
+  background: #252525;
+  color: #F0F0F0;
 }
 
 /* ── AI sidebar markdown ────────────────────────────── */

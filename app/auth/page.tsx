@@ -120,10 +120,10 @@ export default function AuthPage() {
           />
 
           {error && (
-            <p style={{ fontFamily: 'var(--font-sans)', color: '#DC2626', fontSize: '13px' }}>{error}</p>
+            <p style={{ fontFamily: 'var(--font-sans)', color: 'var(--text-secondary)', fontSize: '13px' }}>{error}</p>
           )}
           {success && (
-            <p style={{ fontFamily: 'var(--font-sans)', color: '#16A34A', fontSize: '13px' }}>{success}</p>
+            <p style={{ fontFamily: 'var(--font-sans)', color: 'var(--text-secondary)', fontSize: '13px' }}>{success}</p>
           )}
 
           <button
@@ -132,7 +132,7 @@ export default function AuthPage() {
             className="rounded-lg px-4 py-2.5 cursor-pointer transition-opacity hover:opacity-80 disabled:opacity-50"
             style={{
               background: 'var(--accent)',
-              color: '#fff',
+              color: 'var(--bg)',
               fontFamily: 'var(--font-sans)',
               fontSize: '14px',
               fontWeight: 500,
