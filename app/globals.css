@@ -150,19 +150,6 @@ div:focus { outline: none; }
   color: var(--text-primary);
 }
 
-/* ── Header action button ──────────────────────────── */
-.header-btn {
-  color: var(--text-secondary);
-  background: transparent;
-  border: 1px solid var(--border);
-  cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
-}
-.header-btn:hover {
-  background: var(--surface);
-  color: var(--text-primary);
-  border-color: var(--surface);
-}
 
 /* ── AI Toolbar animation ──────────────────────────── */
 @keyframes toolbar-appear {

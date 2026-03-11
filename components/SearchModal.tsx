@@ -4,7 +4,7 @@ import type { Note } from '@/types'
 
 // ── Action definitions ────────────────────────────────────────────────────────
 
-type ActionId = 'new-note' | 'delete-note' | 'export-md' | 'focus-mode'
+type ActionId = 'new-note' | 'delete-note' | 'export-md' | 'focus-mode' | 'toggle-dark' | 'open-ai'
 
 interface ActionDef {
   id: ActionId
@@ -14,10 +14,12 @@ interface ActionDef {
 }
 
 const ACTIONS: ActionDef[] = [
-  { id: 'new-note',    label: 'New note',               terms: ['create', 'add'],                          shortcut: '⌘N'  },
+  { id: 'new-note',    label: 'New note',               terms: ['create', 'add'],                            shortcut: '⌘N'  },
   { id: 'focus-mode',  label: 'Toggle focus mode',      terms: ['distraction', 'zen', 'hide', 'fullscreen'], shortcut: '⌘⇧F' },
-  { id: 'delete-note', label: 'Delete note',             terms: ['remove', 'trash', 'erase']                              },
-  { id: 'export-md',   label: 'Download as Markdown',    terms: ['export', 'save', 'md', 'file']                          },
+  { id: 'open-ai',     label: 'Open AI assistant',      terms: ['ai', 'chat', 'ask', 'assistant', 'sidebar']               },
+  { id: 'toggle-dark', label: 'Toggle dark mode',       terms: ['theme', 'light', 'dark', 'night', 'color']                },
+  { id: 'export-md',   label: 'Download as Markdown',   terms: ['export', 'save', 'md', 'file']                            },
+  { id: 'delete-note', label: 'Delete note',            terms: ['remove', 'trash', 'erase']                                },
 ]
 
 function actionMatches(a: ActionDef, q: string) {
@@ -79,6 +81,16 @@ function ActionIcon({ id }: { id: ActionId }) {
       <polyline points="2.5 5.5 1 5.5 1 1 5.5 1 5.5 2.5" /><polyline points="5.5 8.5 5.5 10 10 10 10 5.5 8.5 5.5" />
     </svg>
   )
+  if (id === 'open-ai') return (
+    <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={s}>
+      <path d="M1 8.5V10h1.5l4.5-4.5L5.5 4 1 8.5z" /><line x1="7" y1="2" x2="9" y2="4" />
+    </svg>
+  )
+  if (id === 'toggle-dark') return (
+    <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={s}>
+      <path d="M9.5 7A4.5 4.5 0 013.5 1a4.5 4.5 0 100 9 4.5 4.5 0 006-3z" />
+    </svg>
+  )
   // export-md
   return (
     <svg width="11" height="12" viewBox="0 0 11 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={s}>
@@ -100,9 +112,11 @@ interface Props {
   onDeleteNote: () => void
   onExport: () => void
   onFocusMode: () => void
+  onToggleDark: () => void
+  onOpenAI: () => void
 }
 
-export default function SearchModal({ open, onClose, notes, onSelect, onNewNote, onDeleteNote, onExport, onFocusMode }: Props) {
+export default function SearchModal({ open, onClose, notes, onSelect, onNewNote, onDeleteNote, onExport, onFocusMode, onToggleDark, onOpenAI }: Props) {
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -144,10 +158,12 @@ export default function SearchModal({ open, onClose, notes, onSelect, onNewNote,
 
   const activate = (item: Item) => {
     if (item.type === 'action') {
-      if (item.def.id === 'new-note')    onNewNote()
-      if (item.def.id === 'delete-note') onDeleteNote()
-      if (item.def.id === 'export-md')   onExport()
-      if (item.def.id === 'focus-mode')  onFocusMode()
+      if (item.def.id === 'new-note')     onNewNote()
+      if (item.def.id === 'delete-note')  onDeleteNote()
+      if (item.def.id === 'export-md')    onExport()
+      if (item.def.id === 'focus-mode')   onFocusMode()
+      if (item.def.id === 'toggle-dark')  onToggleDark()
+      if (item.def.id === 'open-ai')      onOpenAI()
     } else {
       onSelect(item.note.id)
     }

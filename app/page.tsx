@@ -51,6 +51,7 @@ export default function Page() {
   const [reviewMode, setReviewMode] = useState<AIMode | null>(null)
   const [darkMode, setDarkMode] = useState(false)
   const [focusMode, setFocusMode] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
 
   // Dark mode — init from localStorage, apply to <html>
   useEffect(() => {
@@ -246,11 +247,6 @@ export default function Page() {
                 <line x1="7" y1="2" x2="7" y2="12" /><line x1="2" y1="7" x2="12" y2="7" />
               </svg>
             </button>
-            <button onClick={handleSignOut} title="Sign out" className="icon-btn w-6 h-6 flex items-center justify-center rounded-md cursor-pointer" style={{ color: 'var(--text-tertiary)' }}>
-              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 2H2a1 1 0 00-1 1v7a1 1 0 001 1h3" /><polyline points="9 9 12 6.5 9 4" /><line x1="12" y1="6.5" x2="4.5" y2="6.5" />
-              </svg>
-            </button>
           </div>
         </div>
 
@@ -282,7 +278,7 @@ export default function Page() {
                   onClick={(e) => { e.stopPropagation(); handleDeleteNote(note.id) }}
                   className="opacity-0 group-hover:opacity-100 text-xs transition-opacity duration-100 cursor-pointer w-4 h-4 flex items-center justify-center shrink-0"
                   style={{ color: 'var(--text-tertiary)' }}
-                  onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.color = '#DC2626'}
+                  onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-secondary)'}
                   onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-tertiary)'}
                 >
                   ✕
@@ -294,70 +290,85 @@ export default function Page() {
             </div>
           ))}
         </div>
+
+        {/* ── Sidebar footer ───────────────────────────── */}
+        <div
+          className="px-3 py-2.5 flex items-center gap-1 shrink-0"
+          style={{ borderTop: '1px solid var(--border)' }}
+        >
+          <button onClick={() => setDarkMode(d => !d)} title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'} className="icon-btn w-7 h-7 flex items-center justify-center rounded-md cursor-pointer">
+            {darkMode ? (
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <circle cx="6.5" cy="6.5" r="2.5" /><line x1="6.5" y1="1" x2="6.5" y2="2.2" /><line x1="6.5" y1="10.8" x2="6.5" y2="12" /><line x1="1" y1="6.5" x2="2.2" y2="6.5" /><line x1="10.8" y1="6.5" x2="12" y2="6.5" /><line x1="2.7" y1="2.7" x2="3.6" y2="3.6" /><line x1="9.4" y1="9.4" x2="10.3" y2="10.3" /><line x1="10.3" y1="2.7" x2="9.4" y2="3.6" /><line x1="3.6" y1="9.4" x2="2.7" y2="10.3" />
+              </svg>
+            ) : (
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <path d="M10.5 7.5A4.5 4.5 0 014.5 1.5a4.5 4.5 0 100 9 4.5 4.5 0 006-3z" />
+              </svg>
+            )}
+          </button>
+          <div className="flex-1" />
+
+          {/* Account button + popover */}
+          <div className="relative">
+            {accountOpen && (
+              <>
+                {/* Backdrop */}
+                <div className="fixed inset-0 z-40" onClick={() => setAccountOpen(false)} />
+                {/* Popover */}
+                <div
+                  className="absolute bottom-10 right-0 z-50 rounded-xl overflow-hidden"
+                  style={{
+                    background: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                    minWidth: '180px',
+                  }}
+                >
+                  <div className="px-3 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+                    <div className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-sans)' }}>
+                      {user?.user_metadata?.full_name || user?.user_metadata?.name || 'Account'}
+                    </div>
+                    <div className="text-xs truncate mt-0.5" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-sans)' }}>
+                      {user?.email}
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleSignOut}
+                    className="w-full text-left px-3 py-2.5 text-sm cursor-pointer transition-colors"
+                    style={{ fontFamily: 'var(--font-sans)', color: 'var(--text-secondary)', background: 'transparent', border: 'none' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)' }}
+                  >
+                    Sign out
+                  </button>
+                </div>
+              </>
+            )}
+            <button
+              onClick={() => setAccountOpen(o => !o)}
+              title="Account"
+              className="cursor-pointer overflow-hidden shrink-0"
+              style={{ width: 28, height: 28, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--surface)' }}
+            >
+              {user?.user_metadata?.avatar_url ? (
+                <img
+                  src={user.user_metadata.avatar_url}
+                  alt="avatar"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                  {(user?.email?.[0] ?? '?').toUpperCase()}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
       </aside>
 
       {/* ── Main ────────────────────────────────────── */}
       <main className="flex-1 flex flex-col min-w-0">
-        <header
-          className="flex items-center gap-3 px-8 py-4 shrink-0"
-          style={{
-            borderBottom: '1px solid var(--border)',
-            opacity: focusMode ? 0.2 : 1,
-            transition: 'opacity 0.3s ease',
-          }}
-          onMouseEnter={focusMode ? e => { (e.currentTarget as HTMLElement).style.opacity = '1' } : undefined}
-          onMouseLeave={focusMode ? e => { (e.currentTarget as HTMLElement).style.opacity = '0.2' } : undefined}
-        >
-          <div className="flex-1" />
-          <button
-            onClick={() => setFocusMode(f => !f)}
-            title={focusMode ? 'Exit focus mode (⌘⇧F)' : 'Focus mode (⌘⇧F)'}
-            className="icon-btn w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer"
-            style={{ color: focusMode ? 'var(--accent)' : undefined }}
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-              {focusMode ? (
-                <><polyline points="1 5 1 1 5 1" /><polyline points="9 1 13 1 13 5" /><polyline points="13 9 13 13 9 13" /><polyline points="5 13 1 13 1 9" /></>
-              ) : (
-                <><polyline points="3 7 1 7 1 1 7 1 7 3" /><polyline points="7 11 7 13 13 13 13 7 11 7" /><line x1="1" y1="13" x2="5.5" y2="8.5" /><line x1="8.5" y1="5.5" x2="13" y2="1" /></>
-              )}
-            </svg>
-          </button>
-          <button
-            onClick={() => setDarkMode(d => !d)}
-            title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-            className="icon-btn w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer"
-          >
-            {darkMode ? (
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <circle cx="7" cy="7" r="3" /><line x1="7" y1="1" x2="7" y2="2.5" /><line x1="7" y1="11.5" x2="7" y2="13" /><line x1="1" y1="7" x2="2.5" y2="7" /><line x1="11.5" y1="7" x2="13" y2="7" /><line x1="2.93" y1="2.93" x2="4" y2="4" /><line x1="10" y1="10" x2="11.07" y2="11.07" /><line x1="11.07" y1="2.93" x2="10" y2="4" /><line x1="4" y1="10" x2="2.93" y2="11.07" />
-              </svg>
-            ) : (
-              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <path d="M11.5 8.5A5.5 5.5 0 014.5 1.5a5.5 5.5 0 100 10 5.5 5.5 0 007-3z" />
-              </svg>
-            )}
-          </button>
-          <button
-            onClick={handleExport}
-            title="Export as Markdown"
-            className="header-btn flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg"
-            style={{ fontFamily: 'var(--font-sans)', height: '36px' }}
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="6" y1="1" x2="6" y2="8" /><polyline points="3 5.5 6 8.5 9 5.5" /><line x1="1" y1="11" x2="11" y2="11" />
-            </svg>
-          </button>
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="header-btn flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg"
-            style={{ fontFamily: 'var(--font-sans)', height: '36px' }}
-          >
-            <span style={{ color: 'var(--accent)', fontSize: '12px' }}>✦</span>
-            <span>AI</span>
-          </button>
-        </header>
-
         <div className="flex-1 min-h-0">
           <Editor
             key={activeId}
@@ -385,7 +396,40 @@ export default function Page() {
         onDeleteNote={() => handleDeleteNote(activeId)}
         onExport={handleExport}
         onFocusMode={() => { setSearchOpen(false); setFocusMode(f => !f) }}
+        onToggleDark={() => setDarkMode(d => !d)}
+        onOpenAI={() => setSidebarOpen(true)}
       />
+
+      {/* ── Floating AI button ──────────────────────── */}
+      {!focusMode && (
+        <button
+          onClick={() => setSidebarOpen(true)}
+          title="AI assistant"
+          className="cursor-pointer"
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            width: '44px',
+            height: '44px',
+            borderRadius: '50%',
+            background: 'var(--text-primary)',
+            border: 'none',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 30,
+            transition: 'opacity 0.15s ease, transform 0.15s ease',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.85' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="var(--bg)" stroke="none">
+            <path d="M8 1 L8.9 5.8 L13 8 L8.9 10.2 L8 15 L7.1 10.2 L3 8 L7.1 5.8 Z" />
+          </svg>
+        </button>
+      )}
 
       {showToolbar && (
         <AIToolbar

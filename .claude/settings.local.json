@@ -32,7 +32,8 @@
       "Bash(git add . && git commit -m \"Increase h1 bottom margin for more spacing below document title\" && git push)",
       "Bash(git add . && git commit -m \"Remove note title input from header, remove accent border indicators\" && git push)",
       "Bash(git add . && git commit -m \"Remove accent border indicators from note items and search modal\" && git push)",
-      "Bash(git add . && git commit -m \"Convert to monochrome theme: white light mode, black dark mode\" && git push)"
+      "Bash(git add . && git commit -m \"Convert to monochrome theme: white light mode, black dark mode\" && git push)",
+      "Bash(git add . && git commit -m \"Add floating AI button, account avatar with popover sign-out, move actions to cmd+k\" && git push)"
     ]
   }
 }
