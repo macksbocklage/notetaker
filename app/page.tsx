@@ -348,14 +348,15 @@ export default function Page() {
             <button
               onClick={() => setAccountOpen(o => !o)}
               title="Account"
-              className="cursor-pointer overflow-hidden shrink-0"
-              style={{ width: 28, height: 28, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--surface)' }}
+              className="cursor-pointer shrink-0"
+              style={{ width: 28, height: 28, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--surface)', overflow: 'hidden', padding: 0 }}
             >
-              {user?.user_metadata?.avatar_url ? (
+              {(user?.user_metadata?.avatar_url || user?.user_metadata?.picture) ? (
                 <img
-                  src={user.user_metadata.avatar_url}
+                  src={user.user_metadata.avatar_url || user.user_metadata.picture}
                   alt="avatar"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  referrerPolicy="no-referrer"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                 />
               ) : (
                 <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>

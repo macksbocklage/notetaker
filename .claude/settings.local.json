@@ -33,7 +33,9 @@
       "Bash(git add . && git commit -m \"Remove note title input from header, remove accent border indicators\" && git push)",
       "Bash(git add . && git commit -m \"Remove accent border indicators from note items and search modal\" && git push)",
       "Bash(git add . && git commit -m \"Convert to monochrome theme: white light mode, black dark mode\" && git push)",
-      "Bash(git add . && git commit -m \"Add floating AI button, account avatar with popover sign-out, move actions to cmd+k\" && git push)"
+      "Bash(git add . && git commit -m \"Add floating AI button, account avatar with popover sign-out, move actions to cmd+k\" && git push)",
+      "mcp__supabase__execute_sql",
+      "Bash(git add . && git commit -m \"Fix Google profile image: add referrerPolicy no-referrer, explicit overflow hidden\" && git push)"
     ]
   }
 }
