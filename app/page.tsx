@@ -401,36 +401,6 @@ export default function Page() {
         onOpenAI={() => setSidebarOpen(true)}
       />
 
-      {/* ── Floating AI button ──────────────────────── */}
-      {!focusMode && (
-        <button
-          onClick={() => setSidebarOpen(true)}
-          title="AI assistant"
-          className="cursor-pointer"
-          style={{
-            position: 'fixed',
-            bottom: '24px',
-            right: '24px',
-            width: '44px',
-            height: '44px',
-            borderRadius: '50%',
-            background: 'var(--text-primary)',
-            border: 'none',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 30,
-            transition: 'opacity 0.15s ease, transform 0.15s ease',
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.85' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="var(--bg)" stroke="none">
-            <path d="M8 1 L8.9 5.8 L13 8 L8.9 10.2 L8 15 L7.1 10.2 L3 8 L7.1 5.8 Z" />
-          </svg>
-        </button>
-      )}
 
       {showToolbar && (
         <AIToolbar
