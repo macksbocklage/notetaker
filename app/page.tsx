@@ -260,10 +260,16 @@ export default function Page() {
               key={note.id}
               onClick={() => handleSwitchNote(note.id)}
               className="group note-item px-3 py-2.5 rounded-lg mb-0.5"
-              style={note.id === activeId ? {
-                background: 'var(--surface)',
-                color: 'var(--text-primary)',
-              } : {}}
+              style={{
+                borderLeft: 'none',
+                boxShadow: 'none',
+                ...(note.id === activeId
+                  ? {
+                      background: 'var(--surface)',
+                      color: 'var(--text-primary)',
+                    }
+                  : {}),
+              }}
             >
               <div className="flex items-start justify-between gap-1">
                 <span

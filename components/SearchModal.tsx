@@ -221,6 +221,7 @@ export default function SearchModal({ open, onClose, notes, onSelect, onNewNote,
             const isActive = i === activeIndex
             const activeStyle = {
               borderLeft: 'none',
+              boxShadow: 'none',
               background: isActive ? 'var(--surface)' : 'transparent',
             }
             // Thin divider before first note when both sections are present
