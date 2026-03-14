@@ -6,7 +6,7 @@ export interface Note {
   updatedAt: number
 }
 
-export type AIMode = 'explain' | 'analyze' | 'rewrite' | 'expand' | 'custom'
+export type AIMode = 'explain' | 'analyze' | 'rewrite' | 'expand' | 'custom' | 'improve' | 'summarize' | 'shorter' | 'longer'
 
 export interface AIRequest {
   mode: AIMode

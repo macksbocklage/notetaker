@@ -4,7 +4,7 @@ import type { Note } from '@/types'
 
 // ── Action definitions ────────────────────────────────────────────────────────
 
-type ActionId = 'new-note' | 'delete-note' | 'export-md' | 'focus-mode' | 'toggle-dark' | 'open-ai'
+type ActionId = 'new-note' | 'delete-note' | 'export-md' | 'focus-mode'
 
 interface ActionDef {
   id: ActionId
@@ -16,8 +16,6 @@ interface ActionDef {
 const ACTIONS: ActionDef[] = [
   { id: 'new-note',    label: 'New note',               terms: ['create', 'add'],                            shortcut: '⌘N'  },
   { id: 'focus-mode',  label: 'Toggle focus mode',      terms: ['distraction', 'zen', 'hide', 'fullscreen'], shortcut: '⌘⇧F' },
-  { id: 'open-ai',     label: 'Open AI assistant',      terms: ['ai', 'chat', 'ask', 'assistant', 'sidebar']               },
-  { id: 'toggle-dark', label: 'Toggle dark mode',       terms: ['theme', 'light', 'dark', 'night', 'color']                },
   { id: 'export-md',   label: 'Download as Markdown',   terms: ['export', 'save', 'md', 'file']                            },
   { id: 'delete-note', label: 'Delete note',            terms: ['remove', 'trash', 'erase']                                },
 ]
@@ -31,6 +29,7 @@ function actionMatches(a: ActionDef, q: string) {
 type Item =
   | { type: 'action'; def: ActionDef }
   | { type: 'note';   note: Note }
+  | { type: 'ai';     prompt: string }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -81,16 +80,6 @@ function ActionIcon({ id }: { id: ActionId }) {
       <polyline points="2.5 5.5 1 5.5 1 1 5.5 1 5.5 2.5" /><polyline points="5.5 8.5 5.5 10 10 10 10 5.5 8.5 5.5" />
     </svg>
   )
-  if (id === 'open-ai') return (
-    <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={s}>
-      <path d="M1 8.5V10h1.5l4.5-4.5L5.5 4 1 8.5z" /><line x1="7" y1="2" x2="9" y2="4" />
-    </svg>
-  )
-  if (id === 'toggle-dark') return (
-    <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={s}>
-      <path d="M9.5 7A4.5 4.5 0 013.5 1a4.5 4.5 0 100 9 4.5 4.5 0 006-3z" />
-    </svg>
-  )
   // export-md
   return (
     <svg width="11" height="12" viewBox="0 0 11 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={s}>
@@ -112,11 +101,10 @@ interface Props {
   onDeleteNote: () => void
   onExport: () => void
   onFocusMode: () => void
-  onToggleDark: () => void
-  onOpenAI: () => void
+  onAICommand: (prompt: string) => void
 }
 
-export default function SearchModal({ open, onClose, notes, onSelect, onNewNote, onDeleteNote, onExport, onFocusMode, onToggleDark, onOpenAI }: Props) {
+export default function SearchModal({ open, onClose, notes, onSelect, onNewNote, onDeleteNote, onExport, onFocusMode, onAICommand }: Props) {
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -131,9 +119,13 @@ export default function SearchModal({ open, onClose, notes, onSelect, onNewNote,
     stripHtml(note.content).toLowerCase().includes(q)
   )
 
+  // Show "Ask AI" if query looks like a natural language instruction
+  const showAI = q.length > 4 && matchingActions.length === 0 && matchingNotes.length === 0
+
   const items: Item[] = [
     ...matchingActions.map(def => ({ type: 'action' as const, def })),
     ...matchingNotes.map(note => ({ type: 'note' as const, note })),
+    ...(showAI ? [{ type: 'ai' as const, prompt: query.trim() }] : []),
   ]
 
   // Index of first note item (for rendering a subtle divider)
@@ -162,10 +154,10 @@ export default function SearchModal({ open, onClose, notes, onSelect, onNewNote,
       if (item.def.id === 'delete-note')  onDeleteNote()
       if (item.def.id === 'export-md')    onExport()
       if (item.def.id === 'focus-mode')   onFocusMode()
-      if (item.def.id === 'toggle-dark')  onToggleDark()
-      if (item.def.id === 'open-ai')      onOpenAI()
-    } else {
+    } else if (item.type === 'note') {
       onSelect(item.note.id)
+    } else if (item.type === 'ai') {
+      onAICommand(item.prompt)
     }
     onClose()
   }
@@ -190,7 +182,7 @@ export default function SearchModal({ open, onClose, notes, onSelect, onNewNote,
       <div
         className="fixed inset-0 z-50 flex items-start justify-center"
         style={{
-          background: 'rgba(28, 26, 23, 0.45)',
+          background: 'rgba(0, 0, 0, 0.6)',
           backdropFilter: 'blur(3px)',
           paddingTop: '18vh',
           animation: 'cmd-backdrop 0.25s ease forwards',
@@ -204,7 +196,7 @@ export default function SearchModal({ open, onClose, notes, onSelect, onNewNote,
           maxHeight: '60vh',
           background: 'var(--bg)',
           border: '1px solid var(--border)',
-          boxShadow: '0 24px 60px rgba(0,0,0,0.22)',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.12), 0 24px 60px rgba(0,0,0,0.18)',
           animation: 'cmd-slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards',
           willChange: 'transform, opacity',
         }}
@@ -263,6 +255,35 @@ export default function SearchModal({ open, onClose, notes, onSelect, onNewNote,
                         {item.def.shortcut}
                       </kbd>
                     )}
+                  </div>
+                </div>
+              )
+            }
+
+            if (item.type === 'ai') {
+              return (
+                <div key="ai-command">
+                  <div style={{ height: '1px', background: 'var(--border)', margin: '2px 0' }} />
+                  <div
+                    onClick={() => activate(item)}
+                    onMouseEnter={() => setActiveIndex(i)}
+                    className="px-4 py-2.5 cursor-pointer flex items-center gap-3"
+                    style={activeStyle}
+                  >
+                    <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>✦</span>
+                    </div>
+                    <div className="flex-1">
+                      <span className="text-sm" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500, color: 'var(--text-primary)' }}>
+                        Ask AI
+                      </span>
+                      <span className="text-sm" style={{ fontFamily: 'var(--font-sans)', color: 'var(--text-tertiary)', marginLeft: 6 }}>
+                        &ldquo;{item.prompt}&rdquo;
+                      </span>
+                    </div>
+                    <kbd style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '4px', padding: '2px 6px' }}>
+                      ↵
+                    </kbd>
                   </div>
                 </div>
               )

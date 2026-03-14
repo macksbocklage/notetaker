@@ -2,15 +2,16 @@
 @plugin "@tailwindcss/typography";
 
 :root {
-  --bg: #FFFFFF;
-  --bg-sidebar: #F5F5F5;
-  --surface: #EBEBEB;
-  --border: #E0E0E0;
-  --text-primary: #111111;
-  --text-secondary: #666666;
-  --text-tertiary: #AAAAAA;
-  --accent: #111111;
-  --accent-hover: #333333;
+  color-scheme: dark;
+  --bg:             #08090A;
+  --bg-sidebar:     #08090A;
+  --surface:        #191919;
+  --border:         rgba(255, 255, 255, 0.055);
+  --text-primary:   #E7E7E9;
+  --text-secondary: #8C8C93;
+  --text-tertiary:  #4D4D54;
+  --accent:         #5E6AD2;
+  --accent-hover:   #6E7AE0;
 }
 
 body {
@@ -51,9 +52,9 @@ div:focus { outline: none; }
 
 /* ── Prose overrides — Obsidian-style editor ────────── */
 .prose {
-  font-family: var(--font-serif), Georgia, serif !important;
+  font-family: var(--font-sans), system-ui, sans-serif !important;
   color: var(--text-primary) !important;
-  line-height: 1.6 !important;
+  line-height: 1.7 !important;
 }
 
 /* Paragraphs — one line of breathing room between them */
@@ -68,11 +69,12 @@ div:focus { outline: none; }
 .prose :where(h3) { font-size: 1.25em !important; margin-top: 1.2em !important; margin-bottom: 0.15em !important; }
 .prose :where(h4, h5, h6) { margin-top: 1em !important; margin-bottom: 0.15em !important; }
 .prose :where(h1, h2, h3, h4, h5, h6) {
-  font-family: var(--font-display), Georgia, serif !important;
-  font-weight: 500 !important;
+  font-family: var(--font-sans), system-ui, sans-serif !important;
+  font-weight: 600 !important;
   color: var(--text-primary) !important;
-  letter-spacing: -0.01em !important;
+  letter-spacing: -0.02em !important;
   line-height: 1.25 !important;
+  text-wrap: balance;
 }
 /* First heading gets no top margin */
 .prose :where(h1, h2, h3, h4, h5, h6):first-child { margin-top: 0 !important; }
@@ -111,7 +113,7 @@ div:focus { outline: none; }
 }
 .prose :where(pre) {
   background: var(--surface) !important;
-  border: 1px solid var(--border);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.06) !important;
   margin-top: 0.75em !important;
   margin-bottom: 0.75em !important;
 }
@@ -151,6 +153,20 @@ div:focus { outline: none; }
 }
 
 
+/* ── Tabular numbers ───────────────────────────────── */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Note item stagger entrance ────────────────────── */
+@keyframes note-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.note-enter {
+  animation: note-enter 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 /* ── AI Toolbar animation ──────────────────────────── */
 @keyframes toolbar-appear {
   from { opacity: 0; transform: translateY(8px) scale(0.95); }
@@ -183,40 +199,18 @@ div:focus { outline: none; }
 
 /* ── AI diff marks ─────────────────────────────────── */
 .ai-deletion {
-  background: #F0F0F0;
-  color: #888888;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-tertiary);
   text-decoration: line-through;
-  text-decoration-color: #AAAAAA;
+  text-decoration-color: var(--text-tertiary);
   border-radius: 2px;
   padding: 0 2px;
 }
 .ai-insertion {
-  background: #E8E8E8;
-  color: #111111;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
   border-radius: 2px;
   padding: 0 2px;
-}
-
-/* ── Dark mode ──────────────────────────────────────── */
-html.theme-dark {
-  --bg: #0A0A0A;
-  --bg-sidebar: #111111;
-  --surface: #1E1E1E;
-  --border: #2A2A2A;
-  --text-primary: #F0F0F0;
-  --text-secondary: #888888;
-  --text-tertiary: #555555;
-  --accent: #F0F0F0;
-  --accent-hover: #CCCCCC;
-}
-html.theme-dark .ai-deletion {
-  background: #2A2A2A;
-  color: #888888;
-  text-decoration-color: #555555;
-}
-html.theme-dark .ai-insertion {
-  background: #252525;
-  color: #F0F0F0;
 }
 
 /* ── AI sidebar markdown ────────────────────────────── */
@@ -263,7 +257,7 @@ html.theme-dark .ai-insertion {
 }
 .ai-response.markdown-body pre {
   background: var(--surface);
-  border: 1px solid var(--border);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.06);
   border-radius: 6px;
   padding: 10px 12px;
   overflow-x: auto;

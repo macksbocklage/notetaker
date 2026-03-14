@@ -90,12 +90,12 @@ export default function AIToolbar({
       <div
         className="toolbar-animate overflow-hidden"
         style={{
-          background: 'rgba(250, 249, 245, 0.97)',
+          background: 'var(--bg-sidebar)',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
-          border: '1px solid rgba(221, 217, 207, 0.9)',
+          border: '1px solid var(--border)',
           borderRadius: '12px',
-          boxShadow: '0 4px 20px rgba(28, 26, 23, 0.1), 0 1px 4px rgba(28, 26, 23, 0.06)',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.32), 0 1px 4px rgba(0,0,0,0.2)',
         }}
         onMouseDown={(e) => {
           e.preventDefault()
@@ -171,15 +171,15 @@ export default function AIToolbar({
                 fontSize: '13px',
                 fontFamily: 'var(--font-sans)',
                 fontWeight: 500,
-                color: '#166534',
-                background: '#E7F4E8',
-                border: 'none',
+                color: 'var(--text-primary)',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
                 borderRadius: '7px',
                 cursor: 'pointer',
                 transition: 'background 0.1s',
               }}
-              onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = '#CCE8CE'}
-              onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = '#E7F4E8'}
+              onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.opacity = '0.8'}
+              onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.opacity = '1'}
             >
               <svg width="11" height="9" viewBox="0 0 11 9" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="1,4.5 4,7.5 10,1.5" />
@@ -195,15 +195,15 @@ export default function AIToolbar({
                 fontSize: '13px',
                 fontFamily: 'var(--font-sans)',
                 fontWeight: 500,
-                color: '#991B1B',
-                background: '#FFF0F0',
-                border: 'none',
+                color: 'var(--text-secondary)',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
                 borderRadius: '7px',
                 cursor: 'pointer',
                 transition: 'background 0.1s',
               }}
-              onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = '#FFDDD8'}
-              onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = '#FFF0F0'}
+              onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.opacity = '0.8'}
+              onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.opacity = '1'}
             >
               <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                 <line x1="1" y1="1" x2="8" y2="8" />

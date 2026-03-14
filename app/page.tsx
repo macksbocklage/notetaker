@@ -3,7 +3,6 @@ import { useRef, useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import AIToolbar from '@/components/AIToolbar'
-import AISidebar from '@/components/AISidebar'
 import SearchModal from '@/components/SearchModal'
 import { useAuth } from '@/context/AuthContext'
 import { useNotes } from '@/hooks/useNotes'
@@ -33,6 +32,30 @@ function extractFirstHeading(html: string): string | null {
   return match[1].replace(/<[^>]*>/g, '').trim() || null
 }
 
+function NavItem({ icon, label, shortcut, onClick, active }: {
+  icon: React.ReactNode; label: string; shortcut?: string;
+  onClick?: () => void; active?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-2 px-2 rounded-md cursor-pointer"
+      style={{
+        height: 30, fontSize: 13, fontFamily: 'var(--font-sans)',
+        background: active ? 'var(--surface)' : 'transparent',
+        color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+        border: 'none', textAlign: 'left', transition: 'background 0.1s ease, color 0.1s ease',
+      }}
+      onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)' } }}
+      onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)' } }}
+    >
+      <span style={{ color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>{icon}</span>
+      <span style={{ flex: 1 }}>{label}</span>
+      {shortcut && <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontFamily: 'var(--font-sans)' }}>{shortcut}</span>}
+    </button>
+  )
+}
+
 export default function Page() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
@@ -43,30 +66,15 @@ export default function Page() {
   const { notes, activeId, setActiveId, loading: notesLoading, createNote, updateNote, deleteNote } =
     useNotes(user?.id ?? '')
 
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [selection, setSelection] = useState<SelectionState>({ text: '', rect: null, from: 0, to: 0 })
   const [diffActive, setDiffActive] = useState(false)
   const [reviewRect, setReviewRect] = useState<DOMRect | null>(null)
   const [reviewMode, setReviewMode] = useState<AIMode | null>(null)
-  const [darkMode, setDarkMode] = useState(false)
   const [focusMode, setFocusMode] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
 
-  // Dark mode — init from localStorage, apply to <html>
-  useEffect(() => {
-    if (localStorage.getItem('theme') === 'dark') setDarkMode(true)
-  }, [])
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('theme-dark')
-    } else {
-      document.documentElement.classList.remove('theme-dark')
-    }
-    localStorage.setItem('theme', darkMode ? 'dark' : 'light')
-  }, [darkMode])
-
-  selectionRef.current = selection
+selectionRef.current = selection
   const activeNote = notes.find(n => n.id === activeId) ?? notes[0]
   const [editorContent, setEditorContent] = useState(activeNote?.content ?? '')
 
@@ -100,17 +108,20 @@ export default function Page() {
     }
   }, [activeId, editorContent, updateNote])
 
+  // ── Content change ───────────────────────────────────────────────────────────
+
   const handleContentChange = useCallback((html: string) => {
     setEditorContent(html)
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
       const patch: { content: string; title?: string } = { content: html }
-      // Auto-title: always sync title from first heading if one exists
       const heading = extractFirstHeading(html)
       if (heading) patch.title = heading
       updateNote(activeId, patch)
     }, 400)
   }, [activeId, updateNote])
+
+  // ── Note actions ─────────────────────────────────────────────────────────────
 
   const handleNewNote = useCallback(async () => {
     flushPendingSave()
@@ -130,8 +141,8 @@ export default function Page() {
     const onKeyDown = (e: KeyboardEvent) => {
       const meta = e.metaKey || e.ctrlKey
       if (meta && e.key === 'k') { e.preventDefault(); setSearchOpen(prev => !prev) }
+      if (meta && e.key === 'e') { e.preventDefault(); setSearchOpen(prev => !prev) }
       if (meta && e.key === 'n') { e.preventDefault(); handleNewNoteRef.current() }
-      if (meta && e.key === 'e') { e.preventDefault(); setSidebarOpen(prev => !prev) }
       if (meta && e.key === 'w') { e.preventDefault(); handleDeleteNoteRef.current() }
       if (meta && e.shiftKey && e.key.toLowerCase() === 'f') { e.preventDefault(); setFocusMode(prev => !prev) }
     }
@@ -150,10 +161,6 @@ export default function Page() {
     deleteNote(id)
   }
 
-  const handleTitleChange = (title: string) => {
-    updateNote(activeId, { title })
-  }
-
   const handleExport = useCallback(async () => {
     if (!activeNote) return
     const { default: TurndownService } = await import('turndown')
@@ -170,6 +177,8 @@ export default function Page() {
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
   }, [activeNote, editorContent])
+
+  // ── AI: selection toolbar ────────────────────────────────────────────────────
 
   const handleApply = useCallback((text: string, mode: AIMode) => {
     const { from, to, rect } = selectionRef.current
@@ -194,17 +203,87 @@ export default function Page() {
     setReviewMode(null)
   }, [])
 
-  const handleSidebarInsert = useCallback((text: string) => {
-    editorRef.current?.insertAtCursor(text)
-    editorRef.current?.focus()
+  // ── AI: slash commands ───────────────────────────────────────────────────────
+
+  const handleSlashCommand = useCallback(async (mode: AIMode, text: string, from: number, to: number) => {
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode, selectedText: text }),
+      })
+      if (!res.ok) return
+
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let result = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        result += decoder.decode(value, { stream: true })
+      }
+
+      if (!result.trim()) return
+
+      if (from === -1) {
+        // Full-doc command (e.g. summarize with no paragraph): insert at cursor
+        editorRef.current?.insertAtCursor(result)
+      } else {
+        // Apply diff to the target paragraph
+        editorRef.current?.applyDiff(from, to, result, mode)
+        // Get rect from diff marks position
+        const rect = editorRef.current?.getDiffRect() ?? null
+        setReviewRect(rect)
+        setReviewMode(mode)
+        setDiffActive(true)
+      }
+    } catch {
+      // Ignore errors
+    }
   }, [])
 
-  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      editorRef.current?.focus()
+  // ── AI: command bar (from SearchModal) ───────────────────────────────────────
+
+  const handleAICommand = useCallback(async (prompt: string) => {
+    const context = editorContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+    const { text: selText, from, to } = selectionRef.current
+
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'custom', prompt, context, selectedText: selText || undefined }),
+      })
+      if (!res.ok) return
+
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let result = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        result += decoder.decode(value, { stream: true })
+      }
+
+      if (!result.trim()) return
+
+      if (selText && from && to) {
+        // Apply diff to selection
+        editorRef.current?.applyDiff(from, to, result, 'rewrite')
+        const rect = selectionRef.current.rect ?? editorRef.current?.getDiffRect() ?? null
+        setReviewRect(rect)
+        setReviewMode('rewrite')
+        setDiffActive(true)
+        setSelection({ text: '', rect: null, from: 0, to: 0 })
+      } else {
+        // Insert at cursor
+        editorRef.current?.insertAtCursor(result)
+        editorRef.current?.focus()
+      }
+    } catch {
+      // Ignore errors
     }
-  }
+  }, [editorContent])
 
   const handleSignOut = async () => {
     const supabase = createClient()
@@ -214,7 +293,6 @@ export default function Page() {
 
   if (authLoading || notesLoading || !user) return null
 
-  const aiContext = editorContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
   const showToolbar = selection.text.length > 0 || diffActive
   const toolbarRect = diffActive ? reviewRect : selection.rect
 
@@ -226,102 +304,29 @@ export default function Page() {
         className="w-52 flex flex-col shrink-0"
         style={{ background: 'var(--bg-sidebar)', borderRight: '1px solid var(--border)', display: focusMode ? 'none' : undefined }}
       >
+        {/* ── App header ─────────────────────────────── */}
         <div
-          className="px-4 pt-4 pb-3 flex items-center justify-between shrink-0"
+          className="px-3 py-2.5 flex items-center justify-between shrink-0"
           style={{ borderBottom: '1px solid var(--border)' }}
         >
-          <span
-            className="text-xs font-semibold uppercase tracking-widest"
-            style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-sans)' }}
-          >
-            Notes
-          </span>
-          <div className="flex items-center gap-0.5">
-            <button onClick={() => setSearchOpen(true)} title="Search notes (⌘K)" className="icon-btn w-6 h-6 flex items-center justify-center rounded-md cursor-pointer">
-              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <circle cx="5.5" cy="5.5" r="3.5" /><line x1="8.5" y1="8.5" x2="12" y2="12" />
-              </svg>
-            </button>
-            <button onClick={handleNewNote} title="New note (⌘N)" className="icon-btn w-6 h-6 flex items-center justify-center rounded-md cursor-pointer">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <line x1="7" y1="2" x2="7" y2="12" /><line x1="2" y1="7" x2="12" y2="7" />
-              </svg>
-            </button>
+          <div className="flex items-center gap-2">
+            <span style={{ fontSize: 14, color: 'var(--text-tertiary)' }}>✦</span>
+            <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-sans)', letterSpacing: '-0.01em' }}>
+              Notetaker
+            </span>
           </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto py-2 px-2">
-          {notes.map(note => (
-            <div
-              key={note.id}
-              onClick={() => handleSwitchNote(note.id)}
-              className="group note-item px-3 py-2.5 rounded-lg mb-0.5"
-              style={{
-                borderLeft: 'none',
-                boxShadow: 'none',
-                ...(note.id === activeId
-                  ? {
-                      background: 'var(--surface)',
-                      color: 'var(--text-primary)',
-                    }
-                  : {}),
-              }}
-            >
-              <div className="flex items-start justify-between gap-1">
-                <span
-                  className="text-sm truncate flex-1 leading-snug"
-                  style={{ fontFamily: 'var(--font-sans)', fontWeight: note.id === activeId ? 500 : 400 }}
-                >
-                  {note.title || 'Untitled'}
-                </span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDeleteNote(note.id) }}
-                  className="opacity-0 group-hover:opacity-100 text-xs transition-opacity duration-100 cursor-pointer w-4 h-4 flex items-center justify-center shrink-0"
-                  style={{ color: 'var(--text-tertiary)' }}
-                  onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-secondary)'}
-                  onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-tertiary)'}
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-sans)' }}>
-                {formatDate(note.updatedAt)}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* ── Sidebar footer ───────────────────────────── */}
-        <div
-          className="px-3 py-2.5 flex items-center gap-1 shrink-0"
-          style={{ borderTop: '1px solid var(--border)' }}
-        >
-          <button onClick={() => setDarkMode(d => !d)} title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'} className="icon-btn w-7 h-7 flex items-center justify-center rounded-md cursor-pointer">
-            {darkMode ? (
-              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <circle cx="6.5" cy="6.5" r="2.5" /><line x1="6.5" y1="1" x2="6.5" y2="2.2" /><line x1="6.5" y1="10.8" x2="6.5" y2="12" /><line x1="1" y1="6.5" x2="2.2" y2="6.5" /><line x1="10.8" y1="6.5" x2="12" y2="6.5" /><line x1="2.7" y1="2.7" x2="3.6" y2="3.6" /><line x1="9.4" y1="9.4" x2="10.3" y2="10.3" /><line x1="10.3" y1="2.7" x2="9.4" y2="3.6" /><line x1="3.6" y1="9.4" x2="2.7" y2="10.3" />
-              </svg>
-            ) : (
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <path d="M10.5 7.5A4.5 4.5 0 014.5 1.5a4.5 4.5 0 100 9 4.5 4.5 0 006-3z" />
-              </svg>
-            )}
-          </button>
-          <div className="flex-1" />
 
           {/* Account button + popover */}
           <div className="relative">
             {accountOpen && (
               <>
-                {/* Backdrop */}
                 <div className="fixed inset-0 z-40" onClick={() => setAccountOpen(false)} />
-                {/* Popover */}
                 <div
-                  className="absolute bottom-10 right-0 z-50 rounded-xl overflow-hidden"
+                  className="absolute top-full mt-1 right-0 z-50 rounded-xl overflow-hidden"
                   style={{
                     background: 'var(--bg)',
                     border: '1px solid var(--border)',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.32), 0 1px 4px rgba(0,0,0,0.2)',
                     minWidth: '180px',
                   }}
                 >
@@ -349,7 +354,7 @@ export default function Page() {
               onClick={() => setAccountOpen(o => !o)}
               title="Account"
               className="cursor-pointer shrink-0"
-              style={{ width: 28, height: 28, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--surface)', overflow: 'hidden', padding: 0 }}
+              style={{ width: 24, height: 24, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--surface)', overflow: 'hidden', padding: 0 }}
             >
               {(user?.user_metadata?.avatar_url || user?.user_metadata?.picture) ? (
                 <img
@@ -359,12 +364,84 @@ export default function Page() {
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                 />
               ) : (
-                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                   {(user?.email?.[0] ?? '?').toUpperCase()}
                 </span>
               )}
             </button>
           </div>
+        </div>
+
+        {/* ── Nav items ──────────────────────────────── */}
+        <div className="px-2 py-2 shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+          <NavItem
+            icon={<svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="1" y="1" width="11" height="11" rx="2"/><line x1="1" y1="4.5" x2="12" y2="4.5"/><line x1="4.5" y1="4.5" x2="4.5" y2="12"/></svg>}
+            label="Notes"
+            active
+          />
+          <NavItem
+            icon={<svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="5.5" cy="5.5" r="3.5"/><line x1="8.5" y1="8.5" x2="12" y2="12"/></svg>}
+            label="Search"
+            shortcut="⌘K"
+            onClick={() => setSearchOpen(true)}
+          />
+        </div>
+
+        {/* ── Note list ──────────────────────────────── */}
+        <div className="px-2 pt-3 pb-1 shrink-0">
+          <span style={{ fontSize: 10.5, color: 'var(--text-tertiary)', fontFamily: 'var(--font-sans)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 500, paddingLeft: 4 }}>
+            Notes
+          </span>
+        </div>
+        <div className="flex-1 overflow-y-auto pb-2 px-2">
+          {notes.map((note, i) => (
+            <div
+              key={note.id}
+              onClick={() => handleSwitchNote(note.id)}
+              className="group note-item note-enter px-3 py-2 rounded-lg mb-0.5"
+              style={{
+                animationDelay: `${i * 30}ms`,
+                borderLeft: 'none',
+                boxShadow: 'none',
+                ...(note.id === activeId
+                  ? { background: 'var(--surface)', color: 'var(--text-primary)' }
+                  : {}),
+              }}
+            >
+              <div className="flex items-start justify-between gap-1">
+                <span
+                  className="text-sm truncate flex-1 leading-snug"
+                  style={{ fontFamily: 'var(--font-sans)', fontWeight: note.id === activeId ? 500 : 400 }}
+                >
+                  {note.title || 'Untitled'}
+                </span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleDeleteNote(note.id) }}
+                  className="opacity-0 group-hover:opacity-100 text-xs transition-opacity duration-100 cursor-pointer w-4 h-4 flex items-center justify-center shrink-0"
+                  style={{ color: 'var(--text-tertiary)' }}
+                  onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-secondary)'}
+                  onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-tertiary)'}
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="text-xs mt-0.5 tabular-nums" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-sans)' }}>
+                {formatDate(note.updatedAt)}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Sidebar footer ───────────────────────────── */}
+        <div
+          className="px-3 py-2 flex items-center justify-end shrink-0"
+          style={{ borderTop: '1px solid var(--border)' }}
+        >
+          <button onClick={handleNewNote} title="New note (⌘N)" className="icon-btn w-7 h-7 flex items-center justify-center rounded-md cursor-pointer">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <line x1="7" y1="2" x2="7" y2="12" /><line x1="2" y1="7" x2="12" y2="7" />
+            </svg>
+          </button>
         </div>
       </aside>
 
@@ -377,16 +454,10 @@ export default function Page() {
             initialContent={activeNote?.content ?? ''}
             onChange={handleContentChange}
             onSelectionChange={setSelection}
+            onSlashCommand={handleSlashCommand}
           />
         </div>
       </main>
-
-      <AISidebar
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        documentContent={aiContext}
-        onInsert={handleSidebarInsert}
-      />
 
       <SearchModal
         open={searchOpen}
@@ -397,10 +468,8 @@ export default function Page() {
         onDeleteNote={() => handleDeleteNote(activeId)}
         onExport={handleExport}
         onFocusMode={() => { setSearchOpen(false); setFocusMode(f => !f) }}
-        onToggleDark={() => setDarkMode(d => !d)}
-        onOpenAI={() => setSidebarOpen(true)}
+        onAICommand={handleAICommand}
       />
-
 
       {showToolbar && (
         <AIToolbar

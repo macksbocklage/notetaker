@@ -36,7 +36,15 @@
       "Bash(git add . && git commit -m \"Add floating AI button, account avatar with popover sign-out, move actions to cmd+k\" && git push)",
       "mcp__supabase__execute_sql",
       "Bash(git add . && git commit -m \"Fix Google profile image: add referrerPolicy no-referrer, explicit overflow hidden\" && git push)",
-      "Bash(git add . && git commit -m \"Remove floating AI button\" && git push)"
+      "Bash(git add . && git commit -m \"Remove floating AI button\" && git push)",
+      "Bash(npx tsc --noEmit 2>&1; echo \"exit:$?\")",
+      "Bash(git add -p 2>&1 | head -5)",
+      "Bash(git add app/api/ai/route.ts app/page.tsx components/Editor.tsx components/SearchModal.tsx types/index.ts components/SlashCommandMenu.tsx)",
+      "WebFetch(domain:jakub.kr)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000 2>/dev/null || echo \"not running\")",
+      "mcp__plugin_figma_figma__generate_figma_design",
+      "Bash(open \"http://localhost:3000#figmacapture=efc11c8a-8cc1-4305-8e1f-0cfd2b97da62&figmaendpoint=https%3A%2F%2Fmcp.figma.com%2Fmcp%2Fcapture%2Fefc11c8a-8cc1-4305-8e1f-0cfd2b97da62%2Fsubmit&figmadelay=1000\")",
+      "Bash(git add:*)"
     ]
   }
 }
