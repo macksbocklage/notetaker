@@ -3,10 +3,9 @@ import { useEditor, EditorContent, Editor as TiptapEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { Mark, mergeAttributes } from '@tiptap/core'
-import { forwardRef, useImperativeHandle, useState, useCallback, useRef } from 'react'
+import { forwardRef, useImperativeHandle, useRef } from 'react'
 import { SelectionState, AIMode } from '@/types'
 import { marked } from 'marked'
-import SlashCommandMenu, { SLASH_COMMANDS, SlashCommand } from './SlashCommandMenu'
 
 // ── Formatting toolbar ────────────────────────────────────────────────────────
 
@@ -187,79 +186,39 @@ export interface EditorHandle {
   focus: () => void
   getText: () => string
   getDiffRect: () => DOMRect | null
-}
-
-interface SlashState {
-  active: boolean
-  query: string
-  coords: { left: number; top: number; bottom: number } | null
-  nodeStart: number  // $pos.before() — inclusive start of slash paragraph node
-  nodeEnd: number    // $pos.after()  — exclusive end of slash paragraph node
+  getCursorRect: () => DOMRect | null
+  getCursorParagraph: () => { text: string; from: number; to: number } | null
+  // Streaming diff: marks original as deletion, streams new text token-by-token, finalises
+  beginStreamDiff: (from: number, to: number) => void
+  appendStreamChunk: (text: string) => void
+  endStreamDiff: () => void
+  cancelStreamDiff: () => void
 }
 
 interface EditorProps {
   initialContent: string
   onChange: (html: string) => void
   onSelectionChange?: (selection: SelectionState) => void
-  onSlashCommand?: (mode: AIMode, text: string, from: number, to: number) => void
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 const Editor = forwardRef<EditorHandle, EditorProps>(
-  ({ initialContent, onChange, onSelectionChange, onSlashCommand }, ref) => {
-    const onSlashCommandRef = useRef(onSlashCommand)
-    onSlashCommandRef.current = onSlashCommand
-
-    const [slashState, setSlashState] = useState<SlashState>({
-      active: false, query: '', coords: null, nodeStart: 0, nodeEnd: 0,
-    })
-
-    const dismissSlash = useCallback(() => {
-      setSlashState(s => s.active ? { ...s, active: false } : s)
-    }, [])
+  ({ initialContent, onChange, onSelectionChange }, ref) => {
+    // Streaming diff state — refs so changes don't trigger re-renders
+    const streamOrigFromRef = useRef(0)  // original `from` (start of deletion range)
+    const streamInsertPosRef = useRef(0) // current insert position (grows with each chunk)
 
     const editor = useEditor({
       extensions: [
         StarterKit,
-        Placeholder.configure({ placeholder: 'Start writing… or type / for AI commands' }),
+        Placeholder.configure({ placeholder: 'Start writing… or press ⌘J for AI' }),
         AIDeletion,
         AIInsertion,
       ],
       content: toHTML(initialContent),
       onUpdate({ editor }) {
         onChange(editor.getHTML())
-
-        // ── Slash command detection ────────────────────────────────
-        const { from, to } = editor.state.selection
-        if (from !== to) {
-          setSlashState(s => s.active ? { ...s, active: false } : s)
-          return
-        }
-
-        const $pos = editor.state.doc.resolve(from)
-        const node = $pos.parent
-
-        if (node.type.name === 'paragraph') {
-          const text = node.textContent
-          if (text.startsWith('/')) {
-            const query = text.slice(1)
-            // Only show if entire paragraph is the slash+query (no other content)
-            if (!query.includes(' ') || query === '') {
-              const coords = editor.view.coordsAtPos(from)
-              setSlashState({
-                active: true,
-                query,
-                coords: { left: coords.left, top: coords.top, bottom: coords.bottom },
-                nodeStart: $pos.before(),
-                nodeEnd: $pos.after(),
-              })
-              return
-            }
-          }
-        }
-
-        setSlashState(s => s.active ? { ...s, active: false } : s)
       },
       onSelectionUpdate({ editor }) {
         if (!onSelectionChange) return
@@ -305,46 +264,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(
       },
       immediatelyRender: false,
     })
-
-    // ── Slash command selection handler ───────────────────────────
-
-    const handleSlashSelect = useCallback((cmd: SlashCommand) => {
-      if (!editor) return
-      const { nodeStart, nodeEnd } = slashState
-
-      // Find the previous textblock before the slash paragraph
-      const { doc } = editor.state
-      let prevText = ''
-      let prevFrom = -1
-      let prevTo = -1
-
-      doc.forEach((node, offset) => {
-        const nodeBeforePos = offset + node.nodeSize
-        if (nodeBeforePos <= nodeStart && node.isTextblock && node.textContent.trim()) {
-          prevText = node.textContent
-          prevFrom = offset + 1
-          prevTo = offset + node.nodeSize - 1
-        }
-      })
-
-      // Delete the slash paragraph node
-      editor.chain().deleteRange({ from: nodeStart, to: nodeEnd }).run()
-      setSlashState(s => ({ ...s, active: false }))
-
-      // If no previous paragraph, use the whole document text
-      if (!prevText) {
-        const fullText = editor.getText()
-        if (fullText.trim() && onSlashCommandRef.current) {
-          // For whole-doc commands, insert at end (no diff)
-          onSlashCommandRef.current(cmd.mode, fullText, -1, -1)
-        }
-        return
-      }
-
-      if (onSlashCommandRef.current) {
-        onSlashCommandRef.current(cmd.mode, prevText, prevFrom, prevTo)
-      }
-    }, [editor, slashState])
 
     // ── Imperative handle ─────────────────────────────────────────
 
@@ -445,6 +364,103 @@ const Editor = forwardRef<EditorHandle, EditorProps>(
           return null
         }
       },
+
+      getCursorRect() {
+        if (!editor) return null
+        try {
+          const { from } = editor.state.selection
+          const coords = editor.view.coordsAtPos(from)
+          return {
+            top: coords.top, bottom: coords.bottom,
+            left: coords.left, right: coords.right,
+            width: coords.right - coords.left,
+            height: coords.bottom - coords.top,
+            x: coords.left, y: coords.top,
+            toJSON: () => ({}),
+          } as DOMRect
+        } catch {
+          return null
+        }
+      },
+
+      getCursorParagraph() {
+        if (!editor) return null
+        const { from } = editor.state.selection
+        const $pos = editor.state.doc.resolve(from)
+        const node = $pos.parent
+        if (node.type.name !== 'paragraph' || !node.textContent.trim()) return null
+        return {
+          text: node.textContent,
+          from: $pos.before() + 1,
+          to: $pos.after() - 1,
+        }
+      },
+
+      // ── Streaming diff ────────────────────────────────────────────────────────
+      // beginStreamDiff: marks original range as deletion, sets up write head.
+      beginStreamDiff(from: number, to: number) {
+        if (!editor) return
+        editor.chain().setTextSelection({ from, to }).setMark('aiDeletion').run()
+        streamOrigFromRef.current = from
+        // After marking, `to` is still valid (marks don't shift positions)
+        streamInsertPosRef.current = to
+      },
+
+      // appendStreamChunk: insert one token at the write head with no marks.
+      appendStreamChunk(text: string) {
+        if (!editor || !text) return
+        const { state, view } = editor
+        const textNode = state.schema.text(text, [])  // [] = no mark inheritance from deletion
+        const tr = state.tr.insert(streamInsertPosRef.current, textNode)
+        tr.setMeta('addToHistory', false)  // keep undo stack clean mid-stream
+        view.dispatch(tr)
+        streamInsertPosRef.current += textNode.nodeSize
+      },
+
+      // endStreamDiff: apply aiInsertion mark to everything that was streamed in.
+      endStreamDiff() {
+        if (!editor) return
+        // The original `to` position was saved in streamInsertPosRef before any chunks.
+        // But by now streamInsertPosRef has advanced. We need the original `to` —
+        // which equals streamOrigFromRef + (original to - original from).
+        // Simpler: we track the start of insertion in streamOrigToRef.
+        // Since we only have two refs, infer: insertionStart = streamOrigFromRef + origLen.
+        // We don't have origLen — so let's read it from the doc (deletion mark range).
+        const deletions = getRangesForMark(editor, 'aiDeletion')
+        const insertionStart = deletions.length > 0
+          ? Math.max(...deletions.map(r => r.to))
+          : streamOrigFromRef.current
+        const insertionEnd = streamInsertPosRef.current
+        if (insertionEnd > insertionStart) {
+          editor.chain()
+            .setTextSelection({ from: insertionStart, to: insertionEnd })
+            .setMark('aiInsertion')
+            .run()
+        }
+      },
+
+      // cancelStreamDiff: remove any in-progress streamed text and restore the original.
+      // Only acts if there are deletion marks without insertion marks (mid-stream state).
+      cancelStreamDiff() {
+        if (!editor) return
+        const deletions = getRangesForMark(editor, 'aiDeletion')
+        const insertions = getRangesForMark(editor, 'aiInsertion')
+        // If there are insertion marks already, the stream finished — don't interfere.
+        if (deletions.length === 0 || insertions.length > 0) return
+        const insertionStart = Math.max(...deletions.map(r => r.to))
+        const insertionEnd = streamInsertPosRef.current
+        const chain = editor.chain()
+        // Delete any partially-streamed text
+        if (insertionEnd > insertionStart) {
+          chain.setTextSelection({ from: insertionStart, to: insertionEnd }).deleteSelection()
+        }
+        // Remove deletion marks to restore original text appearance
+        deletions.forEach(r => {
+          chain.setTextSelection({ from: r.from, to: r.to }).unsetMark('aiDeletion')
+        })
+        chain.run()
+        streamInsertPosRef.current = streamOrigFromRef.current
+      },
     }), [editor])
 
     return (
@@ -460,15 +476,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(
           <EditorContent editor={editor} className="min-h-full" />
         </div>
         <StatusBar editor={editor} />
-
-        {slashState.active && slashState.coords && (
-          <SlashCommandMenu
-            query={slashState.query}
-            coords={slashState.coords}
-            onSelect={handleSlashSelect}
-            onDismiss={dismissSlash}
-          />
-        )}
       </div>
     )
   }

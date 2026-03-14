@@ -44,17 +44,16 @@ export default function AuthPage() {
       style={{ background: 'var(--bg)' }}
     >
       <div
-        className="w-full max-w-sm rounded-2xl p-8"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+        className="w-full max-w-sm rounded-xl p-7"
+        style={{ background: 'var(--bg-sidebar)', border: '1px solid var(--border)' }}
       >
         <div className="mb-8 text-center">
-          <h1
-            className="text-2xl mb-1"
-            style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)', fontWeight: 500 }}
-          >
-            Notetaker
-          </h1>
-          <p style={{ fontFamily: 'var(--font-sans)', color: 'var(--text-tertiary)', fontSize: '14px' }}>
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <h1 style={{ fontFamily: 'var(--font-sans)', color: 'var(--text-primary)', fontWeight: 600, fontSize: '24px', letterSpacing: '-0.01em' }}>
+              Notetaker
+            </h1>
+          </div>
+          <p style={{ fontFamily: 'var(--font-sans)', color: 'var(--text-tertiary)', fontSize: '13px' }}>
             {mode === 'signin' ? 'Welcome back' : 'Create an account'}
           </p>
         </div>
