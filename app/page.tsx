@@ -2,8 +2,6 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import AIToolbar from '@/components/AIToolbar'
-import SearchModal from '@/components/SearchModal'
 import { useAuth } from '@/context/AuthContext'
 import { useNotes } from '@/hooks/useNotes'
 import { SelectionState, AIMode } from '@/types'
@@ -11,6 +9,8 @@ import type { EditorHandle } from '@/components/Editor'
 import { createClient } from '@/lib/supabase/client'
 
 const Editor = dynamic(() => import('@/components/Editor'), { ssr: false })
+const SearchModal = dynamic(() => import('@/components/SearchModal'), { ssr: false })
+const AICommandInput = dynamic(() => import('@/components/AICommandInput'), { ssr: false })
 
 function formatDate(timestamp: number): string {
   const now = Date.now()
@@ -67,16 +67,21 @@ export default function Page() {
     useNotes(user?.id ?? '')
 
   const [searchOpen, setSearchOpen] = useState(false)
-  const [selection, setSelection] = useState<SelectionState>({ text: '', rect: null, from: 0, to: 0 })
   const [diffActive, setDiffActive] = useState(false)
-  const [reviewRect, setReviewRect] = useState<DOMRect | null>(null)
   const [reviewMode, setReviewMode] = useState<AIMode | null>(null)
   const [focusMode, setFocusMode] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
+  const [aiInputOpen, setAIInputOpen] = useState(false)
+  const [aiInputPosition, setAIInputPosition] = useState<{ top: number; left: number } | null>(null)
+  const [aiContext, setAIContext] = useState<{ text: string; from: number; to: number } | null>(null)
 
-selectionRef.current = selection
   const activeNote = notes.find(n => n.id === activeId) ?? notes[0]
-  const [editorContent, setEditorContent] = useState(activeNote?.content ?? '')
+  const editorContentRef = useRef(activeNote?.content ?? '')
+
+  // Write selection directly to ref — never needs to trigger a render
+  const handleSelectionChange = useCallback((s: SelectionState) => {
+    selectionRef.current = s
+  }, [])
 
   // Ref so stable callbacks can always read the latest title
   const activeTitleRef = useRef(activeNote?.title)
@@ -91,8 +96,8 @@ selectionRef.current = selection
 
   useEffect(() => {
     const note = notes.find(n => n.id === activeId) ?? notes[0]
-    setEditorContent(note?.content ?? '')
-    setSelection({ text: '', rect: null, from: 0, to: 0 })
+    editorContentRef.current = note?.content ?? ''
+    selectionRef.current = { text: '', rect: null, from: 0, to: 0 }
     if (focusEditorOnMount.current) {
       focusEditorOnMount.current = false
       requestAnimationFrame(() => editorRef.current?.focus())
@@ -104,14 +109,14 @@ selectionRef.current = selection
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current)
       saveTimerRef.current = null
-      updateNote(activeId, { content: editorContent })
+      updateNote(activeId, { content: editorContentRef.current })
     }
-  }, [activeId, editorContent, updateNote])
+  }, [activeId, updateNote])
 
   // ── Content change ───────────────────────────────────────────────────────────
 
   const handleContentChange = useCallback((html: string) => {
-    setEditorContent(html)
+    editorContentRef.current = html
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
       const patch: { content: string; title?: string } = { content: html }
@@ -145,6 +150,20 @@ selectionRef.current = selection
       if (meta && e.key === 'n') { e.preventDefault(); handleNewNoteRef.current() }
       if (meta && e.key === 'w') { e.preventDefault(); handleDeleteNoteRef.current() }
       if (meta && e.shiftKey && e.key.toLowerCase() === 'f') { e.preventDefault(); setFocusMode(prev => !prev) }
+      if (meta && e.key === 'j') {
+        e.preventDefault()
+        const sel = selectionRef.current
+        if (sel.text && sel.rect) {
+          setAIContext({ text: sel.text, from: sel.from, to: sel.to })
+          setAIInputPosition({ top: sel.rect.top - 58, left: sel.rect.left + sel.rect.width / 2 })
+        } else {
+          const para = editorRef.current?.getCursorParagraph() ?? null
+          const cursorRect = editorRef.current?.getCursorRect() ?? null
+          setAIContext(para)
+          if (cursorRect) setAIInputPosition({ top: cursorRect.top - 58, left: cursorRect.left })
+        }
+        setAIInputOpen(true)
+      }
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
@@ -165,7 +184,7 @@ selectionRef.current = selection
     if (!activeNote) return
     const { default: TurndownService } = await import('turndown')
     const td = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' })
-    const body = td.turndown(editorContent || activeNote.content)
+    const body = td.turndown(editorContentRef.current || activeNote.content)
     const markdown = `# ${activeNote.title}\n\n${body}`.trimEnd() + '\n'
     const blob = new Blob([markdown], { type: 'text/markdown' })
     const url = URL.createObjectURL(blob)
@@ -176,114 +195,88 @@ selectionRef.current = selection
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-  }, [activeNote, editorContent])
+  }, [activeNote])
 
-  // ── AI: selection toolbar ────────────────────────────────────────────────────
-
-  const handleApply = useCallback((text: string, mode: AIMode) => {
-    const { from, to, rect } = selectionRef.current
-    editorRef.current?.applyDiff(from, to, text, mode)
-    setReviewRect(rect)
-    setReviewMode(mode)
-    setDiffActive(true)
-    setSelection({ text: '', rect: null, from: 0, to: 0 })
-  }, [])
+  // ── AI handlers ──────────────────────────────────────────────────────────────
 
   const handleAccept = useCallback(() => {
     editorRef.current?.acceptDiff()
     setDiffActive(false)
-    setReviewRect(null)
     setReviewMode(null)
   }, [])
 
   const handleReject = useCallback(() => {
     editorRef.current?.rejectDiff()
     setDiffActive(false)
-    setReviewRect(null)
     setReviewMode(null)
   }, [])
 
-  // ── AI: slash commands ───────────────────────────────────────────────────────
+  const aiContextRef = useRef(aiContext)
+  aiContextRef.current = aiContext
+  const abortRef = useRef<AbortController | null>(null)
 
-  const handleSlashCommand = useCallback(async (mode: AIMode, text: string, from: number, to: number) => {
+  // Returns true if a diff was applied (→ show review), false if text was inserted or failed.
+  const handleAISubmit = useCallback(async (prompt: string, mode?: AIMode): Promise<boolean> => {
+    // Abort any in-progress request
+    abortRef.current?.abort()
+    const abort = new AbortController()
+    abortRef.current = abort
+
+    const ctx = aiContextRef.current
+    const resolvedMode = mode ?? (ctx ? 'rewrite' : 'custom')
+    const context = editorContentRef.current.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+
     try {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode, selectedText: text }),
+        signal: abort.signal,
+        body: JSON.stringify({
+          mode: resolvedMode,
+          selectedText: ctx?.text,
+          prompt: resolvedMode === 'custom' ? prompt : undefined,
+          context,
+        }),
       })
-      if (!res.ok) return
+      if (!res.ok) return false
 
       const reader = res.body!.getReader()
       const decoder = new TextDecoder()
-      let result = ''
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        result += decoder.decode(value, { stream: true })
-      }
 
-      if (!result.trim()) return
-
-      if (from === -1) {
-        // Full-doc command (e.g. summarize with no paragraph): insert at cursor
-        editorRef.current?.insertAtCursor(result)
-      } else {
-        // Apply diff to the target paragraph
-        editorRef.current?.applyDiff(from, to, result, mode)
-        // Get rect from diff marks position
-        const rect = editorRef.current?.getDiffRect() ?? null
-        setReviewRect(rect)
-        setReviewMode(mode)
+      if (ctx) {
+        // Stream tokens directly into the editor while showing deletion marks
+        editorRef.current?.beginStreamDiff(ctx.from, ctx.to)
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          const chunk = decoder.decode(value, { stream: true })
+          if (chunk) editorRef.current?.appendStreamChunk(chunk)
+        }
+        editorRef.current?.endStreamDiff()
+        setReviewMode(resolvedMode)
         setDiffActive(true)
+        return true
+      } else {
+        // Insert-at-cursor: buffer full result (may contain markdown)
+        let result = ''
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          result += decoder.decode(value, { stream: true })
+        }
+        if (result.trim()) {
+          editorRef.current?.insertAtCursor(result)
+          editorRef.current?.focus()
+        }
+        return false
       }
-    } catch {
-      // Ignore errors
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') console.error('AI error:', err)
+      return false
     }
+  // editorContentRef is a ref — stable, no dep needed
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  // ── AI: command bar (from SearchModal) ───────────────────────────────────────
-
-  const handleAICommand = useCallback(async (prompt: string) => {
-    const context = editorContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-    const { text: selText, from, to } = selectionRef.current
-
-    try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'custom', prompt, context, selectedText: selText || undefined }),
-      })
-      if (!res.ok) return
-
-      const reader = res.body!.getReader()
-      const decoder = new TextDecoder()
-      let result = ''
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        result += decoder.decode(value, { stream: true })
-      }
-
-      if (!result.trim()) return
-
-      if (selText && from && to) {
-        // Apply diff to selection
-        editorRef.current?.applyDiff(from, to, result, 'rewrite')
-        const rect = selectionRef.current.rect ?? editorRef.current?.getDiffRect() ?? null
-        setReviewRect(rect)
-        setReviewMode('rewrite')
-        setDiffActive(true)
-        setSelection({ text: '', rect: null, from: 0, to: 0 })
-      } else {
-        // Insert at cursor
-        editorRef.current?.insertAtCursor(result)
-        editorRef.current?.focus()
-      }
-    } catch {
-      // Ignore errors
-    }
-  }, [editorContent])
 
   const handleSignOut = async () => {
     const supabase = createClient()
@@ -292,9 +285,6 @@ selectionRef.current = selection
   }
 
   if (authLoading || notesLoading || !user) return null
-
-  const showToolbar = selection.text.length > 0 || diffActive
-  const toolbarRect = diffActive ? reviewRect : selection.rect
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: 'var(--bg)', contain: 'layout' }}>
@@ -453,8 +443,7 @@ selectionRef.current = selection
             ref={editorRef}
             initialContent={activeNote?.content ?? ''}
             onChange={handleContentChange}
-            onSelectionChange={setSelection}
-            onSlashCommand={handleSlashCommand}
+            onSelectionChange={handleSelectionChange}
           />
         </div>
       </main>
@@ -468,18 +457,23 @@ selectionRef.current = selection
         onDeleteNote={() => handleDeleteNote(activeId)}
         onExport={handleExport}
         onFocusMode={() => { setSearchOpen(false); setFocusMode(f => !f) }}
-        onAICommand={handleAICommand}
       />
 
-      {showToolbar && (
-        <AIToolbar
-          rect={toolbarRect}
-          selectedText={selection.text}
+      {aiInputOpen && (
+        <AICommandInput
+          position={aiInputPosition}
+          context={aiContext}
           inReview={diffActive}
-          onApply={handleApply}
+          activeMode={reviewMode}
+          onSubmit={handleAISubmit}
           onAccept={handleAccept}
           onReject={handleReject}
-          onDismiss={() => setSelection({ text: '', rect: null, from: 0, to: 0 })}
+          onDismiss={() => {
+            abortRef.current?.abort()
+            editorRef.current?.cancelStreamDiff()
+            setAIInputOpen(false)
+            setAIContext(null)
+          }}
         />
       )}
     </div>

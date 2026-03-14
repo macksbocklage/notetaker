@@ -79,23 +79,21 @@ export function useNotes(userId: string) {
   }, [userId])
 
   const deleteNote = useCallback(async (id: string) => {
+    let shouldCreateNew = false
+
     setNotes(prev => {
       const next = prev.filter(n => n.id !== id)
-      if (next.length === 0) return prev // will be handled after async
+      if (next.length === 0) {
+        shouldCreateNew = true
+        return prev // hold state until new note is created
+      }
       if (activeId === id) setActiveId(next[0].id)
       return next
     })
 
     await supabase.current.from('notes').delete().eq('id', id).eq('user_id', userId)
 
-    // If we deleted the last note, create a new one
-    setNotes(prev => {
-      if (prev.length === 0 || (prev.length === 1 && prev[0].id === id)) {
-        createNote()
-        return prev
-      }
-      return prev
-    })
+    if (shouldCreateNew) createNote()
   }, [userId, activeId, createNote])
 
   return { notes, activeId, setActiveId, loading, createNote, updateNote, deleteNote }
