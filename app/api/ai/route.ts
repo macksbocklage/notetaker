@@ -2,9 +2,7 @@ import OpenAI from 'openai'
 import { NextRequest } from 'next/server'
 import { AIRequest } from '@/types'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+export const dynamic = 'force-dynamic'
 
 function buildPrompt(request: AIRequest): string {
   const { mode, selectedText, prompt, context } = request
@@ -44,6 +42,7 @@ function buildPrompt(request: AIRequest): string {
 
 export async function POST(req: NextRequest) {
   try {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
     const body: AIRequest = await req.json()
     const userPrompt = buildPrompt(body)
 
