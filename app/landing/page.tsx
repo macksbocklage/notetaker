@@ -11,7 +11,7 @@ const GLOBAL_STYLES = `
   @keyframes spin     { to   { transform: rotate(360deg) } }
   @keyframes blink    { 0%,100% { opacity: 1 } 50% { opacity: 0 } }
   @keyframes stream   { from { width: 0 } to { width: 100% } }
-  @keyframes pulse-glow { 0%,100% { opacity: 0.35 } 50% { opacity: 0.65 } }
+  @keyframes pulse-glow { 0%,100% { opacity: 0.6 } 50% { opacity: 1 } }
   @keyframes float    { 0%,100% { transform: translateY(0px) } 50% { transform: translateY(-6px) } }
   @keyframes marquee  { from { transform: translateX(0) } to { transform: translateX(-50%) } }
 
@@ -354,7 +354,7 @@ function Hero() {
       {/* Dot grid */}
       <div style={{
         position: 'absolute', inset: 0, zIndex: 0,
-        backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.045) 1px, transparent 1px)',
+        backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.12) 1px, transparent 1px)',
         backgroundSize: '26px 26px',
         maskImage: 'radial-gradient(ellipse 70% 60% at 50% 50%, black 40%, transparent 80%)',
       }} />
@@ -363,7 +363,7 @@ function Hero() {
       <div style={{
         position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
         width: 900, height: 500, zIndex: 0,
-        background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(94,106,210,0.18) 0%, transparent 70%)',
+        background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(94,106,210,0.38) 0%, transparent 70%)',
         animation: 'pulse-glow 6s ease-in-out infinite',
         pointerEvents: 'none',
       }} />
