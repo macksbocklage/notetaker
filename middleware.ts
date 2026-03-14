@@ -27,7 +27,9 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  if (!user && pathname !== '/auth' && !pathname.startsWith('/auth/')) {
+  const isPublic = pathname === '/auth' || pathname.startsWith('/auth/') || pathname === '/landing'
+
+  if (!user && !isPublic) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth'
     return NextResponse.redirect(url)
