@@ -354,7 +354,7 @@ function Hero() {
       {/* Dot grid */}
       <div style={{
         position: 'absolute', inset: 0, zIndex: 0,
-        backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.12) 1px, transparent 1px)',
+        backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px)',
         backgroundSize: '26px 26px',
         maskImage: 'radial-gradient(ellipse 70% 60% at 50% 50%, black 40%, transparent 80%)',
       }} />
