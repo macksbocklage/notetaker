@@ -31,11 +31,11 @@ export async function middleware(request: NextRequest) {
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone()
-    url.pathname = '/auth'
+    url.pathname = '/landing'
     return NextResponse.redirect(url)
   }
 
-  if (user && pathname === '/auth') {
+  if (user && (pathname === '/auth' || pathname === '/landing')) {
     const url = request.nextUrl.clone()
     url.pathname = '/'
     return NextResponse.redirect(url)
